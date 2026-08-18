@@ -5,19 +5,26 @@ import Observation
 @MainActor
 @Observable
 final class ParkingMapViewModel {
+    private(set) var lots: [ParkingLot] = []
+    private(set) var isSearching = false
+    private(set) var hasSearched = false
+    private(set) var searchErrorMessage: String?
+
     var selectedLot: ParkingLot?
 
     private let locationProvider: LocationProvider
+    private let finder: StreetParkingFinder
 
-    init(locationProvider: LocationProvider) {
+    init(locationProvider: LocationProvider, finder: StreetParkingFinder = StreetParkingFinder()) {
         self.locationProvider = locationProvider
+        self.finder = finder
     }
 
     var coordinate: CLLocationCoordinate2D? {
         locationProvider.coordinate
     }
 
-    var errorMessage: String? {
+    var locationErrorMessage: String? {
         locationProvider.errorMessage
     }
 
@@ -29,15 +36,38 @@ final class ParkingMapViewModel {
         locationProvider.coordinate == nil && !locationProvider.isDenied
     }
 
-    /// Generated on demand: the result only depends on the coordinate, so there is
-    /// nothing to keep in sync.
-    var lots: [ParkingLot] {
-        guard let coordinate else { return [] }
-        return ParkingLotGenerator.lots(around: coordinate)
+    var hasNoNearbyParking: Bool {
+        hasSearched && !isSearching && lots.isEmpty && searchErrorMessage == nil
+    }
+
+    /// Rounded to roughly 100 metres, so walking a few steps does not start a new search.
+    var searchKey: String? {
+        guard let coordinate else { return nil }
+        let latitude = (coordinate.latitude * 1000).rounded()
+        let longitude = (coordinate.longitude * 1000).rounded()
+        return "\(latitude),\(longitude)"
     }
 
     func requestLocation() {
         locationProvider.requestLocation()
+    }
+
+    func loadLots() async {
+        guard let coordinate else { return }
+
+        isSearching = true
+        searchErrorMessage = nil
+
+        do {
+            lots = try await finder.spots(near: coordinate)
+            selectedLot = nil
+        } catch {
+            lots = []
+            searchErrorMessage = error.localizedDescription
+        }
+
+        isSearching = false
+        hasSearched = true
     }
 
     func select(_ lot: ParkingLot) {

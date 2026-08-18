@@ -18,6 +18,9 @@ struct ParkingMapView: View {
             .task {
                 viewModel.requestLocation()
             }
+            .task(id: viewModel.searchKey) {
+                await viewModel.loadLots()
+            }
     }
 
     private var map: some View {
@@ -49,10 +52,20 @@ struct ParkingMapView: View {
                 actionTitle: "Open Settings",
                 action: openSystemSettings
             )
-        } else if let errorMessage = viewModel.errorMessage {
-            banner(message: errorMessage, actionTitle: "Try again", action: viewModel.requestLocation)
+        } else if let locationErrorMessage = viewModel.locationErrorMessage {
+            banner(
+                message: locationErrorMessage,
+                actionTitle: "Try again",
+                action: viewModel.requestLocation
+            )
         } else if viewModel.isWaitingForLocation {
-            banner(message: "Looking for your location…", actionTitle: nil, action: nil)
+            banner(message: "Looking for your location…", isBusy: true)
+        } else if viewModel.isSearching {
+            banner(message: "Looking for parking on nearby streets…", isBusy: true)
+        } else if let searchErrorMessage = viewModel.searchErrorMessage {
+            banner(message: searchErrorMessage, actionTitle: "Try again", action: retry)
+        } else if viewModel.hasNoNearbyParking {
+            banner(message: "No street parking found around here.", actionTitle: "Try again", action: retry)
         }
     }
 
@@ -69,8 +82,17 @@ struct ParkingMapView: View {
         }
     }
 
-    private func banner(message: String, actionTitle: String?, action: (() -> Void)?) -> some View {
+    private func banner(
+        message: String,
+        isBusy: Bool = false,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
         HStack(spacing: Theme.Spacing.small) {
+            if isBusy {
+                ProgressView()
+            }
+
             Text(message)
                 .font(.footnote)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,6 +105,12 @@ struct ParkingMapView: View {
         .padding(Theme.Spacing.medium)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
         .padding(Theme.Spacing.medium)
+    }
+
+    private func retry() {
+        Task {
+            await viewModel.loadLots()
+        }
     }
 
     private func openSystemSettings() {

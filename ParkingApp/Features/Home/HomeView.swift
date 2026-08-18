@@ -5,6 +5,15 @@ struct HomeView: View {
     let user: User
     let environment: AppEnvironment
 
+    /// Navigation goes by value so each screen is only built when it is opened. Building
+    /// a destination up front hands it the size of a list row, which the map in
+    /// particular does not recover from.
+    private enum Destination: Hashable {
+        case parking
+        case vehicles
+        case settings
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -20,26 +29,15 @@ struct HomeView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        ParkingMapView(locationProvider: environment.locationProvider)
-                    } label: {
+                    NavigationLink(value: Destination.parking) {
                         Label("Find parking", systemImage: "map.fill")
                     }
 
-                    NavigationLink {
-                        VehicleListView(
-                            vehicleService: environment.vehicleService,
-                            ownerID: user.id
-                        )
-                    } label: {
+                    NavigationLink(value: Destination.vehicles) {
                         Label("My vehicles", systemImage: "car.fill")
                     }
 
-                    NavigationLink {
-                        SettingsView(authService: environment.authService, user: user) { updated in
-                            environment.setCurrentUser(updated)
-                        }
-                    } label: {
+                    NavigationLink(value: Destination.settings) {
                         Label("Settings", systemImage: "gearshape.fill")
                     }
                 }
@@ -51,6 +49,23 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("ParkingApp")
+            .navigationDestination(for: Destination.self, destination: view(for:))
+        }
+    }
+
+    @ViewBuilder
+    private func view(for destination: Destination) -> some View {
+        switch destination {
+        case .parking:
+            ParkingMapView(locationProvider: environment.locationProvider)
+
+        case .vehicles:
+            VehicleListView(vehicleService: environment.vehicleService, ownerID: user.id)
+
+        case .settings:
+            SettingsView(authService: environment.authService, user: user) { updated in
+                environment.setCurrentUser(updated)
+            }
         }
     }
 }
