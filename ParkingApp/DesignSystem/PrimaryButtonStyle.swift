@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The main call to action across the app: full width, accent coloured, and visibly
-/// dimmed while disabled.
+/// The main call to action across the app.
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         StyledLabel(configuration: configuration)

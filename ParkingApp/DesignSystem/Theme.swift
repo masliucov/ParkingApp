@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Design tokens shared by every screen, so spacing and corner radii stay consistent
-/// instead of being re-invented view by view.
+/// Design tokens shared by every screen.
 enum Theme {
     enum Spacing {
         static let extraSmall: CGFloat = 4

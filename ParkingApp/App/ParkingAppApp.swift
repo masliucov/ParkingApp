@@ -2,9 +2,11 @@ import SwiftUI
 
 @main
 struct ParkingAppApp: App {
+    @State private var environment = AppEnvironment.live()
+
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(environment: environment)
         }
     }
 }

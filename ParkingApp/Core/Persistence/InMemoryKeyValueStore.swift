@@ -1,7 +1,6 @@
 import Foundation
 
-/// A `KeyValueStore` that keeps everything in memory. Used by tests and SwiftUI
-/// previews so they never touch the file system.
+/// An in-memory `KeyValueStore` for tests and previews.
 final class InMemoryKeyValueStore: KeyValueStore, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [String: Data]

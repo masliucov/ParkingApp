@@ -1,52 +1,42 @@
 import SwiftUI
 
-/// Entry screen of the app.
-///
-/// From part 2 onwards this view decides between the authentication flow and the
-/// signed-in experience. For now it only presents the app.
+/// Decides between the authentication flow and the signed-in experience.
 struct RootView: View {
-    @State private var isShowingNextStepNotice = false
+    let environment: AppEnvironment
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.large) {
-            Spacer()
-            logo
-            welcome
-            Spacer()
-            Button("Get started") {
-                isShowingNextStepNotice = true
+        Group {
+            if let user = environment.currentUser {
+                HomeView(user: user) {
+                    environment.signOut()
+                }
+            } else {
+                AuthLandingView(authService: environment.authService) { user in
+                    environment.signIn(user)
+                }
             }
-            .buttonStyle(.primary)
         }
-        .padding(Theme.Spacing.large)
-        .frame(maxWidth: Theme.Layout.maxContentWidth)
-        .frame(maxWidth: .infinity)
-        .alert("Almost there", isPresented: $isShowingNextStepNotice) {
+        .animation(.easeInOut(duration: 0.25), value: environment.currentUser)
+        .task {
+            environment.restoreSession()
+        }
+        .alert("Something went wrong", isPresented: isShowingError) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Account creation arrives in the next step.")
+            Text(environment.errorMessage ?? "")
         }
     }
 
-    private var logo: some View {
-        Image(systemName: "parkingsign.circle.fill")
-            .font(.system(size: 88, weight: .regular))
-            .foregroundStyle(Color.accentColor)
-            .accessibilityHidden(true)
-    }
-
-    private var welcome: some View {
-        VStack(spacing: Theme.Spacing.small) {
-            Text("ParkingApp")
-                .font(.largeTitle.bold())
-            Text("Park smarter. Pay only for the time you need.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
+    private var isShowingError: Binding<Bool> {
+        Binding(
+            get: { environment.errorMessage != nil },
+            set: { isPresented in
+                if !isPresented { environment.dismissError() }
+            }
+        )
     }
 }
 
 #Preview {
-    RootView()
+    RootView(environment: AppEnvironment(store: InMemoryKeyValueStore()))
 }

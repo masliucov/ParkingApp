@@ -46,7 +46,20 @@ ParkingAppTests/    Unit tests (Swift Testing)
 - Models are immutable `struct`s; updates return new copies.
 - Storage is abstracted behind `KeyValueStore` so features never touch the file system
   directly, and tests use `InMemoryKeyValueStore`.
-- Errors surface as `AppError`, which carries user-facing English messages.
+- Errors surface as `AppError` and `AuthError`, which carry user-facing English messages.
+- Timestamps are created with `Date.storageNow()`. Stored files use ISO 8601, which keeps
+  whole seconds only, so values in memory stay equal to the ones read back from disk.
+
+### Security note
+
+Accounts live on this device. Passwords are never stored in plain text: each account gets
+a random 256-bit salt and only the SHA-256 digest of salt + password is kept. Sign in
+reports an unknown email exactly like a wrong password, so the app never reveals which
+addresses are registered.
+
+That is enough for a device-local app, but not for a real product: a shipping app must
+verify credentials on a backend and use a deliberately slow hash such as PBKDF2, scrypt
+or Argon2, because SHA-256 is fast enough to make offline brute force cheap.
 
 ## Roadmap
 

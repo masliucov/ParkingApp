@@ -1,10 +1,9 @@
 import Foundation
 
-/// Errors that can reach the user interface.
+/// Errors that reach the user interface.
 ///
-/// `errorDescription` is what the user reads, so it stays short, actionable and free of
-/// technical detail. `logDescription` keeps the context worth writing to the console,
-/// such as the storage key that failed.
+/// `errorDescription` is what the user reads; `logDescription` keeps the failing key
+/// for the console.
 enum AppError: LocalizedError, Equatable {
     case storageUnavailable
     case storageReadFailed(key: String)
@@ -27,7 +26,7 @@ enum AppError: LocalizedError, Equatable {
         }
     }
 
-    /// Technical description for logging. Never shown to the user.
+    /// For the console, never for the user.
     var logDescription: String {
         switch self {
         case .storageUnavailable:
