@@ -3,31 +3,47 @@ import SwiftUI
 /// What a signed-in user sees.
 struct HomeView: View {
     let user: User
-    let onSignOut: () -> Void
+    let environment: AppEnvironment
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Theme.Spacing.large) {
-                Spacer()
-
-                VStack(spacing: Theme.Spacing.small) {
-                    Text("Welcome, \(user.name)")
-                        .font(.title2.bold())
-                        .multilineTextAlignment(.center)
-                    Text("Your vehicles and the parking map arrive in the next steps.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
+                        Text("Welcome, \(user.name)")
+                            .font(.title3.bold())
+                        Text(user.email)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, Theme.Spacing.extraSmall)
                 }
 
-                Spacer()
+                Section {
+                    NavigationLink {
+                        VehicleListView(
+                            vehicleService: environment.vehicleService,
+                            ownerID: user.id
+                        )
+                    } label: {
+                        Label("My vehicles", systemImage: "car.fill")
+                    }
 
-                Button("Sign out", action: onSignOut)
-                    .buttonStyle(.primary)
+                    NavigationLink {
+                        SettingsView(authService: environment.authService, user: user) { updated in
+                            environment.setCurrentUser(updated)
+                        }
+                    } label: {
+                        Label("Settings", systemImage: "gearshape.fill")
+                    }
+                }
+
+                Section {
+                    Button("Sign out", role: .destructive) {
+                        environment.signOut()
+                    }
+                }
             }
-            .padding(Theme.Spacing.large)
-            .frame(maxWidth: Theme.Layout.maxContentWidth)
-            .frame(maxWidth: .infinity)
             .navigationTitle("ParkingApp")
         }
     }
@@ -36,6 +52,6 @@ struct HomeView: View {
 #Preview {
     HomeView(
         user: User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date()),
-        onSignOut: {}
+        environment: AppEnvironment(store: InMemoryKeyValueStore())
     )
 }

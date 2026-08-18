@@ -177,6 +177,124 @@ struct AuthServiceTests {
         }
     }
 
+    // MARK: - Profile
+
+    @Test("changes the name and keeps the rest of the account")
+    func updatesName() throws {
+        // Arrange
+        let service = makeService()
+        let created = try service.signUp(
+            name: "Ana Silvaa",
+            email: "ana@example.com",
+            password: "parking123",
+            confirmation: "parking123"
+        )
+
+        // Act
+        let updated = try service.updateName("  Ana Silva ", for: created)
+
+        // Assert
+        #expect(updated.name == "Ana Silva")
+        #expect(updated.id == created.id)
+        #expect(updated.email == created.email)
+        #expect(updated.createdAt == created.createdAt)
+    }
+
+    @Test("keeps the new name in a later launch")
+    func updatedNameSurvivesRestart() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let created = try makeService(store: store).signUp(
+            name: "Ana Silvaa",
+            email: "ana@example.com",
+            password: "parking123",
+            confirmation: "parking123"
+        )
+        _ = try makeService(store: store).updateName("Ana Silva", for: created)
+
+        // Act
+        let restored = try makeService(store: store).restoreSession()
+
+        // Assert
+        #expect(restored?.name == "Ana Silva")
+    }
+
+    @Test("leaves the password working after a name change")
+    func passwordStillWorksAfterNameChange() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let created = try service.signUp(
+            name: "Ana Silvaa",
+            email: "ana@example.com",
+            password: "parking123",
+            confirmation: "parking123"
+        )
+        _ = try service.updateName("Ana Silva", for: created)
+
+        // Act
+        let signedIn = try service.signIn(email: "ana@example.com", password: "parking123")
+
+        // Assert
+        #expect(signedIn.name == "Ana Silva")
+    }
+
+    @Test("rejects a blank name", arguments: ["", "   "])
+    func updateNameRejectsBlankName(rawName: String) throws {
+        // Arrange
+        let service = makeService()
+        let created = try service.signUp(
+            name: "Ana Silva",
+            email: "ana@example.com",
+            password: "parking123",
+            confirmation: "parking123"
+        )
+
+        // Act & Assert
+        #expect(throws: AuthError.invalidName) {
+            try service.updateName(rawName, for: created)
+        }
+    }
+
+    @Test("reports an account that no longer exists")
+    func updateNameRejectsUnknownAccount() {
+        // Arrange
+        let service = makeService()
+        let stranger = User(
+            id: UUID(),
+            name: "Ana Silva",
+            email: "ana@example.com",
+            createdAt: .storageNow()
+        )
+
+        // Act & Assert
+        #expect(throws: AuthError.accountNotFound) {
+            try service.updateName("Ana Costa", for: stranger)
+        }
+    }
+
+    @Test("renames the account instead of creating a second one")
+    func updateNameDoesNotDuplicateAccount() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let created = try service.signUp(
+            name: "Ana Silvaa",
+            email: "ana@example.com",
+            password: "parking123",
+            confirmation: "parking123"
+        )
+
+        // Act
+        _ = try service.updateName("Ana Silva", for: created)
+
+        // Assert
+        let accounts = try #require(
+            try store.read([StoredAccount].self, forKey: StoredUserRepository.storageKey)
+        )
+        #expect(accounts.count == 1)
+    }
+
     // MARK: - Session
 
     @Test("restores the signed-in user in a later launch")

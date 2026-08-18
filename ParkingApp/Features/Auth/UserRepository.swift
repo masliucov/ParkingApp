@@ -24,12 +24,7 @@ struct StoredUserRepository: UserRepository {
     }
 
     func save(_ account: StoredAccount) throws {
-        let existing = try accounts()
-        let isKnown = existing.contains { $0.user.id == account.user.id }
-        let updated = isKnown
-            ? existing.map { $0.user.id == account.user.id ? account : $0 }
-            : existing + [account]
-
+        let updated = try accounts().upserting(account)
         try store.write(updated, forKey: Self.storageKey)
     }
 

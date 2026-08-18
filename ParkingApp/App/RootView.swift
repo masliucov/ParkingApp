@@ -7,12 +7,10 @@ struct RootView: View {
     var body: some View {
         Group {
             if let user = environment.currentUser {
-                HomeView(user: user) {
-                    environment.signOut()
-                }
+                HomeView(user: user, environment: environment)
             } else {
                 AuthLandingView(authService: environment.authService) { user in
-                    environment.signIn(user)
+                    environment.setCurrentUser(user)
                 }
             }
         }

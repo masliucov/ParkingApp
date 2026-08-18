@@ -8,6 +8,7 @@ enum AuthError: LocalizedError, Equatable {
     case passwordsDoNotMatch
     case emailAlreadyRegistered
     case invalidCredentials
+    case accountNotFound
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +25,8 @@ enum AuthError: LocalizedError, Equatable {
         case .invalidCredentials:
             // Vague on purpose: a precise message would reveal which emails are registered.
             return "Email or password is incorrect."
+        case .accountNotFound:
+            return "We could not find your account. Please sign in again."
         }
     }
 }

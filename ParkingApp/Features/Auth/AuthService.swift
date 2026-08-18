@@ -46,6 +46,28 @@ struct AuthService: Sendable {
         return account.user
     }
 
+    /// Changes the display name, keeping every other detail of the account.
+    func updateName(_ rawName: String, for user: User) throws -> User {
+        let name = try AuthValidator.validateName(rawName)
+
+        guard let account = try repository.account(withID: user.id) else {
+            throw AuthError.accountNotFound
+        }
+
+        let updated = StoredAccount(
+            user: User(
+                id: account.user.id,
+                name: name,
+                email: account.user.email,
+                createdAt: account.user.createdAt
+            ),
+            passwordSalt: account.passwordSalt,
+            passwordHash: account.passwordHash
+        )
+        try repository.save(updated)
+        return updated.user
+    }
+
     func signOut() throws {
         try sessionStore.clear()
     }
