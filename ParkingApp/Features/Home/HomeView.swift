@@ -21,6 +21,12 @@ struct HomeView: View {
 
                 Section {
                     NavigationLink {
+                        ParkingMapView(locationProvider: environment.locationProvider)
+                    } label: {
+                        Label("Find parking", systemImage: "map.fill")
+                    }
+
+                    NavigationLink {
                         VehicleListView(
                             vehicleService: environment.vehicleService,
                             ownerID: user.id

@@ -7,6 +7,7 @@ import Observation
 final class AppEnvironment {
     let authService: AuthService
     let vehicleService: VehicleService
+    let locationProvider = LocationProvider()
 
     private(set) var currentUser: User?
     private(set) var errorMessage: String?
