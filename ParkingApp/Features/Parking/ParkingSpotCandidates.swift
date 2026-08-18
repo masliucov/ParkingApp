@@ -3,8 +3,8 @@ import Foundation
 
 /// Picks the rough places to go looking for street parking.
 ///
-/// The positions are deterministic: the same spot on the map always produces the same
-/// candidates, so nothing moves around while the phone's GPS drifts.
+/// Deterministic: the same place always gives the same candidates, so nothing moves
+/// around while the GPS drifts.
 enum ParkingSpotCandidates {
     static let minimumDistance: CLLocationDistance = 150
     static let maximumDistance: CLLocationDistance = 900
@@ -20,8 +20,7 @@ enum ParkingSpotCandidates {
 
         var candidates: [CLLocationCoordinate2D] = []
         for index in 0..<count {
-            // One candidate per slice of the compass, so they surround the user instead
-            // of bunching up on one side.
+            // One per slice of the compass, so they surround the user.
             let bearing = slice * Double(index) + Double.random(in: 0..<slice, using: &generator)
             let distance = Double.random(in: minimumDistance...maximumDistance, using: &generator)
 
@@ -30,10 +29,8 @@ enum ParkingSpotCandidates {
         return candidates
     }
 
-    /// The centre of a grid cell roughly 100 metres across.
-    ///
-    /// Both the seed and the candidate positions hang off this instead of the raw
-    /// reading, so the spots stay put while the GPS wanders.
+    /// The centre of a grid cell roughly 100 metres across. Both the seed and the
+    /// positions hang off this rather than off the raw reading.
     private static func anchor(for coordinate: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
         CLLocationCoordinate2D(
             latitude: (coordinate.latitude * 1000).rounded() / 1000,
@@ -47,8 +44,8 @@ enum ParkingSpotCandidates {
         return UInt64(bitPattern: (latitude &* 73_856_093) ^ (longitude &* 19_349_663))
     }
 
-    /// Flat-earth offset. Under a kilometre the error is a few metres, and the point is
-    /// only a starting guess anyway.
+    /// Flat-earth offset. Under a kilometre the error is a few metres, and this is only
+    /// a starting guess anyway.
     private static func coordinate(
         from center: CLLocationCoordinate2D,
         distance: CLLocationDistance,

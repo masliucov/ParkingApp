@@ -7,6 +7,7 @@ import Observation
 final class AppEnvironment {
     let authService: AuthService
     let vehicleService: VehicleService
+    let sessionService: ParkingSessionService
     let locationProvider = LocationProvider()
 
     private(set) var currentUser: User?
@@ -18,6 +19,9 @@ final class AppEnvironment {
             sessionStore: SessionStore(store: store)
         )
         vehicleService = VehicleService(repository: StoredVehicleRepository(store: store))
+        sessionService = ParkingSessionService(
+            repository: StoredParkingSessionRepository(store: store)
+        )
     }
 
     /// Falls back to a memory store if Application Support cannot be opened, so storage

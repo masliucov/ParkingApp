@@ -1,13 +1,12 @@
 import CoreLocation
 import Foundation
 
-/// Invents the commercial details of a parking lot.
+/// Invents what a spot costs and how full it is.
 ///
-/// Apple Maps knows where parking is, not what it costs, so the price and the occupancy
-/// are made up. Both are derived from the lot's own name and position, which keeps them
-/// stable between launches instead of changing on every search.
+/// There is no source of real parking prices, so both are made up. They come from the
+/// spot's own street and position, which keeps them steady between launches.
 enum ParkingLotPricing {
-    static let hourlyRates: [Decimal] = [0.80, 1.00, 1.20, 1.50, 1.80, 2.00, 2.50]
+    static let hourlyRates: [Decimal] = [80, 100, 120, 150, 180, 200, 250].map(Decimal.cents)
 
     struct Details: Equatable, Sendable {
         let hourlyRate: Decimal
@@ -20,13 +19,13 @@ enum ParkingLotPricing {
         let totalSpaces = Int.random(in: 40...400, using: &generator)
 
         return Details(
-            hourlyRate: hourlyRates.randomElement(using: &generator) ?? 1.50,
+            hourlyRate: hourlyRates.randomElement(using: &generator) ?? .cents(150),
             availableSpaces: Int.random(in: 0...totalSpaces, using: &generator),
             totalSpaces: totalSpaces
         )
     }
 
-    /// Stable across searches, so the same real place keeps the same identity.
+    /// Stable across searches, so the same place keeps the same identity.
     static func identifier(name: String, coordinate: CLLocationCoordinate2D) -> String {
         "\(name)@\(rounded(coordinate.latitude)),\(rounded(coordinate.longitude))"
     }
@@ -39,8 +38,8 @@ enum ParkingLotPricing {
         return UInt64(bitPattern: position) ^ nameSeed(name)
     }
 
-    /// `String.hashValue` is salted per launch, so the characters are folded by hand to
-    /// keep the price of a lot the same every time the app opens.
+    /// `String.hashValue` is salted per launch, so fold the characters by hand instead.
+    /// Otherwise a spot changes price every time the app opens.
     private static func nameSeed(_ name: String) -> UInt64 {
         name.unicodeScalars.reduce(UInt64(14_695_981_039_346_656_037)) { hash, scalar in
             (hash ^ UInt64(scalar.value)) &* 1_099_511_628_211

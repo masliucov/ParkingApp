@@ -11,15 +11,14 @@ enum StreetParkingError: LocalizedError, Equatable {
 
 /// Puts random parking spots on real streets near the user.
 ///
-/// A random point on its own can land in the sea, inside a block or in the middle of a
-/// field. So each point is only a guess: walking directions are requested towards it,
-/// and the route that comes back runs along real streets. The end of that route is the
-/// spot, and the route's name is the street it sits on.
+/// A random point alone can land in the sea or inside a block, so it is only a guess:
+/// walking directions towards it come back as a route along real streets. The end of
+/// that route is the spot, and the route's name is the street.
 struct StreetParkingFinder: Sendable {
     static let maximumSpots = 5
 
-    /// Throws only when every single lookup failed, which means the map service could
-    /// not be reached rather than that the area has no streets.
+    /// Throws only when every lookup failed, which means the map service is unreachable
+    /// rather than the area having no streets.
     func spots(near coordinate: CLLocationCoordinate2D, count: Int = maximumSpots) async throws -> [ParkingLot] {
         let candidates = ParkingSpotCandidates.coordinates(around: coordinate, count: count)
         guard !candidates.isEmpty else { return [] }

@@ -1,0 +1,234 @@
+import Foundation
+import Testing
+@testable import ParkingApp
+
+@Suite("ParkingSessionService")
+struct ParkingSessionServiceTests {
+
+    private let now = Date(timeIntervalSince1970: 1_755_000_000)
+
+    @Test("starts a session that runs for the chosen duration")
+    func startsSession() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+
+        // Act
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+
+        // Assert
+        #expect(session.startedAt == now)
+        #expect(session.expiresAt == now.addingTimeInterval(2 * 3600))
+        #expect(session.isActive(at: now))
+    }
+
+    @Test("charges the price of the chosen duration")
+    func chargesForDuration() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+
+        // Act
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(150)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .thirtyMinutes,
+            userID: user,
+            now: now
+        )
+
+        // Assert
+        #expect(session.amountPaid == .cents(75))
+    }
+
+    @Test("keeps a copy of the vehicle and the spot")
+    func keepsCopies() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let vehicle = makeVehicle(ownerID: user)
+        let lot = makeLot()
+
+        // Act
+        let session = try service.start(
+            lot: lot,
+            vehicle: vehicle,
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Assert
+        #expect(session.vehicle == vehicle)
+        #expect(session.lot == lot)
+    }
+
+    @Test("refuses a second session while one is running")
+    func refusesSecondSession() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act & Assert
+        #expect(throws: ParkingSessionError.alreadyParked) {
+            try service.start(
+                lot: makeLot(),
+                vehicle: makeVehicle(ownerID: user),
+                duration: .oneHour,
+                userID: user,
+                now: now.addingTimeInterval(600)
+            )
+        }
+    }
+
+    @Test("allows a new session once the previous one has expired")
+    func allowsSessionAfterExpiry() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now.addingTimeInterval(3601)
+        )
+
+        // Assert
+        #expect(session.isActive(at: now.addingTimeInterval(3601)))
+    }
+
+    @Test("does not block a different driver")
+    func doesNotBlockAnotherDriver() throws {
+        // Arrange
+        let service = makeService()
+        let firstDriver = UUID()
+        let secondDriver = UUID()
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: firstDriver),
+            duration: .oneHour,
+            userID: firstDriver,
+            now: now
+        )
+
+        // Act
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: secondDriver),
+            duration: .oneHour,
+            userID: secondDriver,
+            now: now
+        )
+
+        // Assert
+        #expect(session.userID == secondDriver)
+    }
+
+    @Test("refuses a spot with no free spaces")
+    func refusesFullLot() {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+
+        // Act & Assert
+        #expect(throws: ParkingSessionError.lotIsFull) {
+            try service.start(
+                lot: makeLot(availableSpaces: 0),
+                vehicle: makeVehicle(ownerID: user),
+                duration: .oneHour,
+                userID: user,
+                now: now
+            )
+        }
+    }
+
+    @Test("stops reporting a session as active once it expires")
+    func expiresSession() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act & Assert
+        #expect(try service.activeSession(for: user, at: now.addingTimeInterval(3599)) != nil)
+        #expect(try service.activeSession(for: user, at: now.addingTimeInterval(3600)) == nil)
+    }
+
+    @Test("keeps expired sessions in the history")
+    func keepsHistory() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let user = UUID()
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let sessions = try makeService(store: store).sessions(for: user)
+
+        // Assert
+        #expect(sessions.count == 1)
+    }
+
+    // MARK: - Helpers
+
+    private func makeService(store: KeyValueStore = InMemoryKeyValueStore()) -> ParkingSessionService {
+        ParkingSessionService(repository: StoredParkingSessionRepository(store: store))
+    }
+
+    private func makeLot(hourlyRate: Decimal = .cents(120), availableSpaces: Int = 8) -> ParkingLot {
+        ParkingLot(
+            id: "Rua Augusta@38.71120,-9.13760",
+            name: "Rua Augusta",
+            latitude: 38.7112,
+            longitude: -9.1376,
+            hourlyRate: hourlyRate,
+            availableSpaces: availableSpaces,
+            totalSpaces: 40
+        )
+    }
+
+    private func makeVehicle(ownerID: UUID) -> Vehicle {
+        Vehicle(
+            id: UUID(),
+            ownerID: ownerID,
+            model: "Renault Clio",
+            licensePlate: "AA-00-BB",
+            createdAt: now
+        )
+    }
+}

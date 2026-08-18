@@ -4,9 +4,21 @@ import SwiftUI
 struct ParkingMapView: View {
     @State private var viewModel: ParkingMapViewModel
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
+    @State private var lotBeingBooked: ParkingLot?
 
-    init(locationProvider: LocationProvider) {
-        _viewModel = State(initialValue: ParkingMapViewModel(locationProvider: locationProvider))
+    @Environment(\.dismiss) private var dismiss
+
+    private let user: User
+    private let environment: AppEnvironment
+    private let onSessionStarted: () -> Void
+
+    init(user: User, environment: AppEnvironment, onSessionStarted: @escaping () -> Void) {
+        self.user = user
+        self.environment = environment
+        self.onSessionStarted = onSessionStarted
+        _viewModel = State(
+            initialValue: ParkingMapViewModel(locationProvider: environment.locationProvider)
+        )
     }
 
     var body: some View {
@@ -20,6 +32,18 @@ struct ParkingMapView: View {
             }
             .task(id: viewModel.searchKey) {
                 await viewModel.loadLots()
+            }
+            .sheet(item: $lotBeingBooked) { lot in
+                StartParkingView(
+                    lot: lot,
+                    user: user,
+                    vehicleService: environment.vehicleService,
+                    sessionService: environment.sessionService
+                ) {
+                    lotBeingBooked = nil
+                    onSessionStarted()
+                    dismiss()
+                }
             }
     }
 
@@ -75,6 +99,7 @@ struct ParkingMapView: View {
             ParkingLotCard(
                 lot: lot,
                 distance: viewModel.formattedDistance(to: lot),
+                onPark: { lotBeingBooked = lot },
                 onClose: viewModel.clearSelection
             )
             .padding(Theme.Spacing.medium)
@@ -135,6 +160,7 @@ private struct ParkingLotPin: View {
 private struct ParkingLotCard: View {
     let lot: ParkingLot
     let distance: String?
+    let onPark: () -> Void
     let onClose: () -> Void
 
     var body: some View {
@@ -166,6 +192,11 @@ private struct ParkingLotCard: View {
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
+
+            Button("Park here", action: onPark)
+                .buttonStyle(.primary)
+                .disabled(!lot.hasSpacesAvailable)
+                .padding(.top, Theme.Spacing.extraSmall)
         }
         .padding(Theme.Spacing.medium)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -175,6 +206,10 @@ private struct ParkingLotCard: View {
 
 #Preview {
     NavigationStack {
-        ParkingMapView(locationProvider: LocationProvider())
+        ParkingMapView(
+            user: User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date()),
+            environment: AppEnvironment(store: InMemoryKeyValueStore()),
+            onSessionStarted: {}
+        )
     }
 }

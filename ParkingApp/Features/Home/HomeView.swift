@@ -5,9 +5,18 @@ struct HomeView: View {
     let user: User
     let environment: AppEnvironment
 
-    /// Navigation goes by value so each screen is only built when it is opened. Building
-    /// a destination up front hands it the size of a list row, which the map in
-    /// particular does not recover from.
+    @State private var viewModel: HomeViewModel
+
+    init(user: User, environment: AppEnvironment) {
+        self.user = user
+        self.environment = environment
+        _viewModel = State(
+            initialValue: HomeViewModel(sessionService: environment.sessionService, userID: user.id)
+        )
+    }
+
+    /// By value, so a screen is only built when it is opened. Building the map up front
+    /// left it with the width of a list row.
     private enum Destination: Hashable {
         case parking
         case vehicles
@@ -17,15 +26,10 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
-                        Text("Welcome, \(user.name)")
-                            .font(.title3.bold())
-                        Text(user.email)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, Theme.Spacing.extraSmall)
+                greeting
+
+                if let session = viewModel.activeSession {
+                    activeParking(session)
                 }
 
                 Section {
@@ -50,6 +54,34 @@ struct HomeView: View {
             }
             .navigationTitle("ParkingApp")
             .navigationDestination(for: Destination.self, destination: view(for:))
+            .task {
+                viewModel.refresh()
+            }
+        }
+    }
+
+    private var greeting: some View {
+        Section {
+            VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
+                Text("Welcome, \(user.name)")
+                    .font(.title3.bold())
+                Text(user.email)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, Theme.Spacing.extraSmall)
+        }
+    }
+
+    private func activeParking(_ session: ParkingSession) -> some View {
+        Section("Active parking") {
+            LabeledContent("Street", value: session.lot.name)
+            LabeledContent("Vehicle", value: session.vehicle.licensePlate)
+            LabeledContent(
+                "Until",
+                value: session.expiresAt.formatted(date: .omitted, time: .shortened)
+            )
+            LabeledContent("Paid", value: session.formattedAmountPaid)
         }
     }
 
@@ -57,7 +89,9 @@ struct HomeView: View {
     private func view(for destination: Destination) -> some View {
         switch destination {
         case .parking:
-            ParkingMapView(locationProvider: environment.locationProvider)
+            ParkingMapView(user: user, environment: environment) {
+                viewModel.refresh()
+            }
 
         case .vehicles:
             VehicleListView(vehicleService: environment.vehicleService, ownerID: user.id)

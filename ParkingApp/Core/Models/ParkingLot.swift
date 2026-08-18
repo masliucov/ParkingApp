@@ -19,8 +19,7 @@ struct ParkingLot: Codable, Equatable, Identifiable, Sendable {
         availableSpaces > 0
     }
 
-    /// Formatted in the device's currency, falling back to euros.
     var formattedHourlyRate: String {
-        hourlyRate.formatted(.currency(code: Locale.current.currency?.identifier ?? "EUR"))
+        ParkingPricing.formatted(hourlyRate)
     }
 }
