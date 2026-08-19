@@ -15,7 +15,9 @@ The entire user interface is in **English**.
   stay ends.
 - **Find parking** — a real map centred on you, with parking spots on nearby streets.
   Every spot carries a four-digit code, and the map searches by code or street name —
-  including spots parked at before, so a code off an old receipt still finds them.
+  including spots parked at before, so a code off an old receipt still finds them. A spot
+  holding one of your cars is green and badged with how many, and stays on the map even
+  when a search would drop it.
 - **Pay and park** — pick a vehicle and a duration, see the price, start parking.
 - **Several vehicles at once** — a driver with two cars can have both parked. Each
   vehicle takes one stay at a time; the picker marks the ones already parked.
@@ -112,7 +114,7 @@ which is close enough to look right and wrong enough to fail a comparison.
 
 ## Testing
 
-153 tests across 17 suites, all written with Swift Testing.
+159 tests across 18 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

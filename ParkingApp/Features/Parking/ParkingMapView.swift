@@ -2,9 +2,6 @@ import MapKit
 import SwiftUI
 
 struct ParkingMapView: View {
-    /// Close enough to see which side of the street the spot was on.
-    private static let focusedSpan: CLLocationDistance = 400
-
     @State private var viewModel: ParkingMapViewModel
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var lotBeingBooked: ParkingLot?
@@ -58,11 +55,11 @@ struct ParkingMapView: View {
             }
             .task {
                 viewModel.requestLocation()
-                viewModel.loadRememberedLots()
+                viewModel.loadKnownLots()
             }
             .onChange(of: activeParking.activeSessions) {
                 // A stay that just started or ended may have added a spot worth searching.
-                viewModel.loadRememberedLots()
+                viewModel.loadKnownLots()
             }
             .task(id: viewModel.searchKey) {
                 await viewModel.loadLots()
@@ -112,11 +109,12 @@ struct ParkingMapView: View {
                     Button {
                         viewModel.select(lot)
                     } label: {
-                        ParkingLotPin(isSelected: viewModel.selectedLot?.id == lot.id)
+                        ParkingLotPin(
+                            isSelected: viewModel.selectedLot?.id == lot.id,
+                            parkedCount: viewModel.parkedCount(at: lot)
+                        )
                     }
-                    .accessibilityLabel(
-                        "\(lot.name), code \(lot.code), \(lot.availableSpaces) spaces free"
-                    )
+                    .accessibilityLabel(accessibilityLabel(for: lot))
                 }
             }
         }
@@ -178,7 +176,12 @@ struct ParkingMapView: View {
             ActiveParkingOverlay(
                 sessions: activeParking.activeSessions,
                 onAddTime: { sessionBeingExtended = $0 },
-                onEnd: { sessionBeingEnded = $0 }
+                onEnd: { session in
+                    // Move to the spot first, so the pin being freed is under the dialog
+                    // rather than somewhere off screen.
+                    focusCamera(on: session.lot)
+                    sessionBeingEnded = session
+                }
             )
             .padding(.vertical, Theme.Spacing.medium)
             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -215,20 +218,28 @@ struct ParkingMapView: View {
     private func show(_ lot: ParkingLot) {
         viewModel.query = ""
         viewModel.select(lot)
-        cameraPosition = .region(
-            MKCoordinateRegion(
-                center: lot.coordinate,
-                latitudinalMeters: Self.focusedSpan,
-                longitudinalMeters: Self.focusedSpan
-            )
-        )
+        focusCamera(on: lot)
         lotToShow = nil
+    }
+
+    private func focusCamera(on lot: ParkingLot) {
+        withAnimation {
+            cameraPosition = .region(ParkingMapCamera.region(focusing: lot))
+        }
     }
 
     private func retry() {
         Task {
             await viewModel.loadLots()
         }
+    }
+
+    private func accessibilityLabel(for lot: ParkingLot) -> String {
+        let base = "\(lot.name), code \(lot.code), \(lot.availableSpaces) spaces free"
+        let parked = viewModel.parkedCount(at: lot)
+
+        guard parked > 0 else { return base }
+        return "\(base). \(parked) of your cars parked here."
     }
 
     private var isConfirmingEnd: Binding<Bool> {
@@ -248,14 +259,42 @@ struct ParkingMapView: View {
 
 private struct ParkingLotPin: View {
     let isSelected: Bool
+    /// How many of the driver's cars are in this spot. Above zero the pin turns green.
+    let parkedCount: Int
+
+    private var isOccupied: Bool {
+        parkedCount > 0
+    }
 
     var body: some View {
         Image(systemName: "parkingsign.circle.fill")
             .font(.title)
             .symbolRenderingMode(.palette)
-            .foregroundStyle(.white, isSelected ? Color.accentColor : Color.secondary)
+            .foregroundStyle(.white, tint)
             .scaleEffect(isSelected ? 1.25 : 1)
             .animation(.spring(duration: 0.2), value: isSelected)
+            .overlay(alignment: .topTrailing) {
+                if isOccupied {
+                    countBadge
+                }
+            }
+    }
+
+    /// Green wins over the selection colour: where your car is matters more than which pin
+    /// you last tapped, and the tap already shows in the size.
+    private var tint: Color {
+        if isOccupied { return .green }
+        return isSelected ? Color.accentColor : Color.secondary
+    }
+
+    private var countBadge: some View {
+        Text("\(parkedCount)")
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(minWidth: 16, minHeight: 16)
+            .background(Circle().fill(.green))
+            .overlay(Circle().stroke(.white, lineWidth: 1.5))
+            .offset(x: 5, y: -5)
     }
 }
 

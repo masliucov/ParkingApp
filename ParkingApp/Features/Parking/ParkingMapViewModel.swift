@@ -17,6 +17,10 @@ final class ParkingMapViewModel {
     /// away. Only consulted once something is typed.
     private(set) var rememberedLots: [ParkingLot] = []
 
+    /// Where the driver's cars are right now. These stay on the map even when a search
+    /// would drop them: losing sight of your own car is worse than a stricter result list.
+    private(set) var parkedLots: [ParkingLot] = []
+
     private let locationProvider: LocationProvider
     private let finder: StreetParkingFinder
     private let sessionService: ParkingSessionService
@@ -66,15 +70,24 @@ final class ParkingMapViewModel {
             remembered: rememberedLots
         )
 
-        guard let selectedLot, !matches.contains(where: { $0.id == selectedLot.id }) else {
-            return matches
-        }
-        return matches + [selectedLot]
+        // A search is the driver asking for something specific, so only the untouched map
+        // carries the parked spots on top of the results.
+        let withParked = query.isEmpty
+            ? ParkingLotSearch.appending(parkedLots, to: matches)
+            : matches
+
+        guard let selectedLot else { return withParked }
+        return ParkingLotSearch.appending([selectedLot], to: withParked)
+    }
+
+    /// How many of the driver's cars sit in this spot, which is what turns its pin green.
+    func parkedCount(at lot: ParkingLot) -> Int {
+        parkedLots.filter { $0.id == lot.id }.count
     }
 
     /// Collects the distinct spots out of the driver's stays, newest first, so a code from
-    /// a recent receipt is the one found soonest.
-    func loadRememberedLots() {
+    /// a recent receipt is the one found soonest, and notes which of them hold a car now.
+    func loadKnownLots(at date: Date = Date()) {
         guard let sessions = try? sessionService.sessions(for: userID) else { return }
 
         var seen = Set<String>()
@@ -82,6 +95,10 @@ final class ParkingMapViewModel {
             .reversed()
             .map(\.lot)
             .filter { seen.insert($0.id).inserted }
+
+        // Kept one per stay rather than deduplicated: two cars in one spot has to count as
+        // two, which is what the pin reports.
+        parkedLots = sessions.filter { $0.isActive(at: date) }.map(\.lot)
     }
 
     /// A search that hides every spot needs saying, otherwise the map just looks empty.

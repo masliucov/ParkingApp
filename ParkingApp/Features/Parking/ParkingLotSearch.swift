@@ -33,5 +33,14 @@ enum ParkingLotSearch {
         return found + matching(trimmed, in: remembered).filter { !foundIDs.contains($0.id) }
     }
 
+    /// Adds spots that belong on the map whatever the search turned up — the ones with a
+    /// car parked in them, and the one whose card is open — without listing any twice.
+    /// `extra` is deduplicated against itself too: two cars in one spot arrive as the same
+    /// lot twice, and a repeated identifier would break the map's `ForEach`.
+    static func appending(_ extra: [ParkingLot], to lots: [ParkingLot]) -> [ParkingLot] {
+        var known = Set(lots.map(\.id))
+        return lots + extra.filter { known.insert($0.id).inserted }
+    }
+
     private static let nameOptions: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
 }

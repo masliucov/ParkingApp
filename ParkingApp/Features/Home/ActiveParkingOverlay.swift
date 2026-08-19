@@ -107,14 +107,26 @@ private struct CompactParkingCard: View {
                 countdown(at: context.date)
             }
 
+            // Plate and code are short and must never truncate, so they share a line and
+            // the street gets one of its own. All three on one row cut the plate in half.
             HStack(spacing: Theme.Spacing.medium) {
                 Label(session.vehicle.licensePlate, systemImage: "car")
+                    .fixedSize()
+
                 Label(session.lot.code, systemImage: "parkingsign")
-                Label(session.lot.name, systemImage: "signpost.right")
-                    .lineLimit(1)
+                    .fixedSize()
+
+                Spacer(minLength: 0)
             }
-            .font(.footnote)
+            .font(.footnote.monospacedDigit())
             .foregroundStyle(.secondary)
+
+            Label(session.lot.name, systemImage: "signpost.right")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: Theme.Spacing.small) {
                 Button("Add time", action: onAddTime)
@@ -140,10 +152,13 @@ private struct CompactParkingCard: View {
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .foregroundStyle(session.isActive(at: date) ? Color.primary : Color.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             Text(session.isActive(at: date) ? "remaining" : "parking ended")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .accessibilityElement(children: .combine)
     }

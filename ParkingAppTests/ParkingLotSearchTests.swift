@@ -136,6 +136,46 @@ struct ParkingLotSearchTests {
         #expect(matches == [lot])
     }
 
+    // MARK: - Always on the map
+
+    @Test("adds a lot the search left out")
+    func appendsMissingLot() {
+        // Arrange
+        let found = makeLot(name: "Rua Augusta")
+        let parked = makeLot(name: "Praça do Comércio")
+
+        // Act
+        let result = ParkingLotSearch.appending([parked], to: [found])
+
+        // Assert
+        #expect(result == [found, parked])
+    }
+
+    @Test("does not add a lot the search already found")
+    func doesNotAppendALotTwice() {
+        // Arrange
+        let lot = makeLot(name: "Rua Augusta")
+
+        // Act
+        let result = ParkingLotSearch.appending([lot], to: [lot])
+
+        // Assert
+        #expect(result == [lot])
+    }
+
+    @Test("adds a lot once even when two cars are parked in it")
+    func appendsARepeatedLotOnce() {
+        // Arrange
+        let found = makeLot(name: "Rua Augusta")
+        let shared = makeLot(name: "Praça do Comércio")
+
+        // Act: the same spot arrives twice, one entry per parked car
+        let result = ParkingLotSearch.appending([shared, shared], to: [found])
+
+        // Assert
+        #expect(result == [found, shared])
+    }
+
     // MARK: - Helpers
 
     private func makeLot(name: String) -> ParkingLot {
