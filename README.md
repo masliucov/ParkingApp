@@ -114,7 +114,7 @@ which is close enough to look right and wrong enough to fail a comparison.
 
 ## Testing
 
-159 tests across 18 suites, all written with Swift Testing.
+162 tests across 19 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

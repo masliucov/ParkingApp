@@ -27,6 +27,11 @@ final class AppEnvironment {
             repository: StoredVehicleRepository(store: store),
             sessionService: sessions
         )
+
+        // Restored here rather than when the first screen appears. Reading the stored
+        // session is a local, synchronous lookup, and leaving it until then meant a frame
+        // of the sign-in screen before the signed-in user was put back.
+        restoreSession()
     }
 
     /// Falls back to a memory store if Application Support cannot be opened, so storage
@@ -41,7 +46,7 @@ final class AppEnvironment {
         }
     }
 
-    func restoreSession() {
+    private func restoreSession() {
         do {
             currentUser = try authService.restoreSession()
         } catch {

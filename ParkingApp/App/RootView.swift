@@ -14,10 +14,9 @@ struct RootView: View {
                 }
             }
         }
+        // Only signing in and out are worth animating; the session is already restored by
+        // the time this is first drawn.
         .animation(.easeInOut(duration: 0.25), value: environment.currentUser)
-        .task {
-            environment.restoreSession()
-        }
         .alert("Something went wrong", isPresented: isShowingError) {
             Button("OK", role: .cancel) {}
         } message: {
