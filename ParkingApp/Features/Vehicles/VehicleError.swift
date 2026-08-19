@@ -5,6 +5,7 @@ enum VehicleError: LocalizedError, Equatable {
     case invalidModel
     case invalidLicensePlate
     case licensePlateAlreadyRegistered
+    case vehicleIsParked
 
     var errorDescription: String? {
         switch self {
@@ -14,6 +15,8 @@ enum VehicleError: LocalizedError, Equatable {
             return "Please enter a valid license plate."
         case .licensePlateAlreadyRegistered:
             return "You already have a vehicle with this license plate."
+        case .vehicleIsParked:
+            return "This car is parked right now. Wait for the stay to end before deleting it."
         }
     }
 }

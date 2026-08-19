@@ -19,9 +19,13 @@ final class AppEnvironment {
             repository: StoredUserRepository(store: store),
             sessionStore: SessionStore(store: store)
         )
-        vehicleService = VehicleService(repository: StoredVehicleRepository(store: store))
-        sessionService = ParkingSessionService(
+        let sessions = ParkingSessionService(
             repository: StoredParkingSessionRepository(store: store)
+        )
+        sessionService = sessions
+        vehicleService = VehicleService(
+            repository: StoredVehicleRepository(store: store),
+            sessionService: sessions
         )
     }
 

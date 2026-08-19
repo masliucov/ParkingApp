@@ -27,16 +27,22 @@ final class VehicleListViewModel {
         }
     }
 
+    /// Reloads whatever happened, so a car that refused to be deleted stays on screen
+    /// instead of the list drifting away from what is stored.
     func delete(at offsets: IndexSet) {
         let selected = offsets.map { vehicles[$0] }
-        do {
-            for vehicle in selected {
+        var failure: String?
+
+        for vehicle in selected {
+            do {
                 try service.delete(vehicle)
+            } catch {
+                failure = error.localizedDescription
             }
-            load()
-        } catch {
-            errorMessage = error.localizedDescription
         }
+
+        load()
+        errorMessage = failure
     }
 
     func dismissError() {

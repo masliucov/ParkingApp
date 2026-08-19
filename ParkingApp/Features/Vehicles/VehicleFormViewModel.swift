@@ -12,13 +12,18 @@ final class VehicleFormViewModel {
     private let service: VehicleService
     private let ownerID: UUID
     private let vehicle: Vehicle?
-    private let onSaved: () -> Void
+    private let onFinished: () -> Void
 
-    init(service: VehicleService, ownerID: UUID, vehicle: Vehicle?, onSaved: @escaping () -> Void) {
+    init(
+        service: VehicleService,
+        ownerID: UUID,
+        vehicle: Vehicle?,
+        onFinished: @escaping () -> Void
+    ) {
         self.service = service
         self.ownerID = ownerID
         self.vehicle = vehicle
-        self.onSaved = onSaved
+        self.onFinished = onFinished
         model = vehicle?.model ?? ""
         licensePlate = vehicle?.licensePlate ?? ""
     }
@@ -31,6 +36,11 @@ final class VehicleFormViewModel {
         !model.isEmpty && !licensePlate.isEmpty
     }
 
+    /// Only a vehicle that is already registered can be removed.
+    var canDelete: Bool {
+        vehicle != nil
+    }
+
     func submit() {
         do {
             if let vehicle {
@@ -39,7 +49,21 @@ final class VehicleFormViewModel {
                 _ = try service.register(model: model, licensePlate: licensePlate, ownerID: ownerID)
             }
             errorMessage = nil
-            onSaved()
+            onFinished()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Refused while the car is parked, in which case the message says so and the form
+    /// stays open.
+    func delete() {
+        guard let vehicle else { return }
+
+        do {
+            try service.delete(vehicle)
+            errorMessage = nil
+            onFinished()
         } catch {
             errorMessage = error.localizedDescription
         }

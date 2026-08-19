@@ -3,6 +3,8 @@ import Foundation
 /// Registering and editing the cars a user can park.
 struct VehicleService: Sendable {
     let repository: VehicleRepository
+    /// Only consulted to refuse deleting a car that is still parked.
+    let sessionService: ParkingSessionService
 
     func vehicles(ownedBy ownerID: UUID) throws -> [Vehicle] {
         try repository.vehicles(ownedBy: ownerID)
@@ -40,7 +42,18 @@ struct VehicleService: Sendable {
         return updated
     }
 
-    func delete(_ vehicle: Vehicle) throws {
+    /// A car that is parked cannot be removed. The stay is paid for and still counting
+    /// down, and the card on the home screen would be left naming a car the driver can no
+    /// longer find in the app.
+    func delete(_ vehicle: Vehicle, now: Date = .storageNow()) throws {
+        let isParked = try sessionService.activeSession(
+            forVehicle: vehicle.id,
+            userID: vehicle.ownerID,
+            at: now
+        ) != nil
+
+        guard !isParked else { throw VehicleError.vehicleIsParked }
+
         try repository.delete(vehicleWithID: vehicle.id)
     }
 

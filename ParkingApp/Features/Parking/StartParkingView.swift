@@ -119,9 +119,7 @@ struct StartParkingView: View {
             totalSpaces: 40
         ),
         user: User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date()),
-        vehicleService: VehicleService(
-            repository: StoredVehicleRepository(store: InMemoryKeyValueStore())
-        ),
+        vehicleService: AppEnvironment(store: InMemoryKeyValueStore()).vehicleService,
         sessionService: ParkingSessionService(
             repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore())
         ),

@@ -11,6 +11,7 @@ The entire user interface is in **English**.
 - **Accounts** — sign up and sign in; the session survives closing the app.
 - **Vehicles** — register cars by brand and license plate, edit and delete them. The
   brand is picked from a searchable list rather than typed, so it is spelled one way.
+  A car that is parked cannot be deleted until its stay ends.
 - **Find parking** — a real map centred on you, with parking spots on nearby streets.
 - **Pay and park** — pick a vehicle and a duration, see the price, start parking.
 - **Several vehicles at once** — a driver with two cars can have both parked. Each
@@ -99,7 +100,7 @@ which is close enough to look right and wrong enough to fail a comparison.
 
 ## Testing
 
-132 tests across 15 suites, all written with Swift Testing.
+134 tests across 15 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

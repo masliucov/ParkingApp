@@ -186,9 +186,79 @@ struct VehicleServiceTests {
         #expect(try service.vehicles(ownedBy: owner) == [replacement])
     }
 
+    @Test("refuses to delete a vehicle while it is parked")
+    func refusesToDeleteParkedVehicle() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let owner = UUID()
+        let vehicle = try service.register(
+            model: "Renault",
+            licensePlate: "AA-00-BB",
+            ownerID: owner
+        )
+        try park(vehicle, ownerID: owner, in: store)
+
+        // Act & Assert
+        #expect(throws: VehicleError.vehicleIsParked) {
+            try service.delete(vehicle, now: now)
+        }
+        #expect(try service.vehicles(ownedBy: owner) == [vehicle])
+    }
+
+    @Test("deletes a vehicle once its stay has ended")
+    func deletesVehicleAfterStayEnds() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let owner = UUID()
+        let vehicle = try service.register(
+            model: "Renault",
+            licensePlate: "AA-00-BB",
+            ownerID: owner
+        )
+        try park(vehicle, ownerID: owner, in: store)
+
+        // Act
+        try service.delete(vehicle, now: now.addingTimeInterval(3601))
+
+        // Assert
+        #expect(try service.vehicles(ownedBy: owner).isEmpty)
+    }
+
     // MARK: - Helpers
 
+    private let now = Date(timeIntervalSince1970: 1_755_000_000)
+
     private func makeService(store: KeyValueStore = InMemoryKeyValueStore()) -> VehicleService {
-        VehicleService(repository: StoredVehicleRepository(store: store))
+        VehicleService(
+            repository: StoredVehicleRepository(store: store),
+            sessionService: ParkingSessionService(
+                repository: StoredParkingSessionRepository(store: store)
+            )
+        )
+    }
+
+    /// Starts an hour of parking for `vehicle` at `now`, over the same store the service
+    /// reads, so deleting it has something to trip over.
+    private func park(_ vehicle: Vehicle, ownerID: UUID, in store: KeyValueStore) throws {
+        let sessions = ParkingSessionService(
+            repository: StoredParkingSessionRepository(store: store)
+        )
+        _ = try sessions.start(
+            lot: ParkingLot(
+                id: "Rua Augusta@38.71120,-9.13760",
+                name: "Rua Augusta",
+                latitude: 38.7112,
+                longitude: -9.1376,
+                hourlyRate: .cents(120),
+                availableSpaces: 8,
+                totalSpaces: 40
+            ),
+            vehicle: vehicle,
+            duration: .oneHour,
+            userID: ownerID,
+            now: now
+        )
     }
 }

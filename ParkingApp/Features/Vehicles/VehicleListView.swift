@@ -128,9 +128,7 @@ private struct VehicleRow: View {
 #Preview {
     NavigationStack {
         VehicleListView(
-            vehicleService: VehicleService(
-                repository: StoredVehicleRepository(store: InMemoryKeyValueStore())
-            ),
+            vehicleService: AppEnvironment(store: InMemoryKeyValueStore()).vehicleService,
             ownerID: UUID()
         )
     }

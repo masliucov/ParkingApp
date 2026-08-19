@@ -3,20 +3,21 @@ import SwiftUI
 struct VehicleFormView: View {
     @State private var viewModel: VehicleFormViewModel
     @State private var isChoosingMake = false
+    @State private var isConfirmingDelete = false
     @Environment(\.dismiss) private var dismiss
 
     init(
         vehicleService: VehicleService,
         ownerID: UUID,
         vehicle: Vehicle?,
-        onSaved: @escaping () -> Void
+        onFinished: @escaping () -> Void
     ) {
         _viewModel = State(
             initialValue: VehicleFormViewModel(
                 service: vehicleService,
                 ownerID: ownerID,
                 vehicle: vehicle,
-                onSaved: onSaved
+                onFinished: onFinished
             )
         )
     }
@@ -48,6 +49,13 @@ struct VehicleFormView: View {
                     .buttonStyle(.primary)
                     .disabled(!viewModel.canSubmit)
                     .padding(.top, Theme.Spacing.small)
+
+                    if viewModel.canDelete {
+                        Button("Delete vehicle", role: .destructive) {
+                            isConfirmingDelete = true
+                        }
+                        .padding(.top, Theme.Spacing.small)
+                    }
                 }
                 .padding(Theme.Spacing.large)
                 .frame(maxWidth: Theme.Layout.maxContentWidth)
@@ -57,6 +65,18 @@ struct VehicleFormView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $isChoosingMake) {
                 CarMakePicker(selection: $viewModel.model)
+            }
+            .confirmationDialog(
+                "Delete this vehicle?",
+                isPresented: $isConfirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button("Delete vehicle", role: .destructive) {
+                    viewModel.delete()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Past parking keeps this car in your history. This cannot be undone.")
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -71,11 +91,9 @@ struct VehicleFormView: View {
 
 #Preview {
     VehicleFormView(
-        vehicleService: VehicleService(
-            repository: StoredVehicleRepository(store: InMemoryKeyValueStore())
-        ),
+        vehicleService: AppEnvironment(store: InMemoryKeyValueStore()).vehicleService,
         ownerID: UUID(),
         vehicle: nil,
-        onSaved: {}
+        onFinished: {}
     )
 }
