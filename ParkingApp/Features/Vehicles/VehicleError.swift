@@ -9,7 +9,7 @@ enum VehicleError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidModel:
-            return "Please enter the car model."
+            return "Please choose the car brand."
         case .invalidLicensePlate:
             return "Please enter a valid license plate."
         case .licensePlateAlreadyRegistered:

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VehicleFormView: View {
     @State private var viewModel: VehicleFormViewModel
+    @State private var isChoosingMake = false
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -24,11 +25,13 @@ struct VehicleFormView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.medium) {
-                    FormField(
-                        title: "Car model",
-                        text: $viewModel.model,
-                        autocapitalization: .words
-                    )
+                    FormSelectionField(
+                        title: "Car brand",
+                        value: viewModel.model.isEmpty ? nil : viewModel.model,
+                        placeholder: "Select a brand"
+                    ) {
+                        isChoosingMake = true
+                    }
                     FormField(
                         title: "License plate",
                         text: $viewModel.licensePlate,
@@ -52,6 +55,9 @@ struct VehicleFormView: View {
             }
             .navigationTitle(viewModel.title)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $isChoosingMake) {
+                CarMakePicker(selection: $viewModel.model)
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {

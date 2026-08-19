@@ -37,6 +37,43 @@ struct FormField: View {
     }
 }
 
+/// A labelled row that opens a picker, styled like `FormField` so a chosen value and a
+/// typed one sit at the same height in a form.
+struct FormSelectionField: View {
+    let title: String
+    /// What the user picked, or nil to show `placeholder` greyed out.
+    let value: String?
+    let placeholder: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Button(action: action) {
+                HStack {
+                    Text(value ?? placeholder)
+                        .foregroundStyle(value == nil ? .secondary : .primary)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, Theme.Spacing.medium)
+                .frame(height: Theme.Layout.controlHeight)
+                .frame(maxWidth: .infinity)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(title)
+            .accessibilityValue(value ?? placeholder)
+        }
+    }
+}
+
 /// The message shown when a form cannot be submitted.
 struct FormErrorText: View {
     let message: String
