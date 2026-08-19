@@ -204,6 +204,132 @@ struct ParkingSessionServiceTests {
         #expect(sessions.count == 1)
     }
 
+    // MARK: - Adding time
+
+    @Test("adds time to the end of the stay, not to the current moment")
+    func extendsFromTheEnd() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act: ten minutes in, buy another hour
+        let extended = try service.extend(session, by: .oneHour, now: now.addingTimeInterval(600))
+
+        // Assert
+        #expect(extended.expiresAt == session.expiresAt.addingTimeInterval(3600))
+    }
+
+    @Test("adds the price of the extra time to what was already paid")
+    func extendsAmountPaid() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(120)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let extended = try service.extend(session, by: .oneHour, now: now)
+
+        // Assert
+        #expect(session.amountPaid == .cents(120))
+        #expect(extended.amountPaid == .cents(240))
+    }
+
+    @Test("keeps the vehicle, the spot and the start time")
+    func extendsKeepsDetails() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let extended = try service.extend(session, by: .thirtyMinutes, now: now)
+
+        // Assert
+        #expect(extended.id == session.id)
+        #expect(extended.vehicle == session.vehicle)
+        #expect(extended.lot == session.lot)
+        #expect(extended.startedAt == session.startedAt)
+    }
+
+    @Test("extends the session in place instead of starting another")
+    func extendsInPlace() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        _ = try service.extend(session, by: .oneHour, now: now)
+
+        // Assert
+        #expect(try service.sessions(for: user).count == 1)
+    }
+
+    @Test("reports the extended session as the active one")
+    func extendedSessionStaysActive() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        _ = try service.extend(session, by: .oneHour, now: now)
+
+        // Assert: the original hour is up, the bought hour is not
+        #expect(try service.activeSession(for: user, at: now.addingTimeInterval(3601)) != nil)
+    }
+
+    @Test("refuses to add time to parking that has already ended")
+    func refusesToExtendEndedSession() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act & Assert
+        #expect(throws: ParkingSessionError.sessionEnded) {
+            try service.extend(session, by: .oneHour, now: now.addingTimeInterval(3600))
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeService(store: KeyValueStore = InMemoryKeyValueStore()) -> ParkingSessionService {

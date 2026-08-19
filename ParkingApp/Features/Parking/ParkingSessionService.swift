@@ -33,6 +33,32 @@ struct ParkingSessionService: Sendable {
         return session
     }
 
+    /// Adds time to the end of the stay rather than to the current moment, so time
+    /// already paid for is never lost.
+    func extend(
+        _ session: ParkingSession,
+        by duration: ParkingDuration,
+        now: Date = .storageNow()
+    ) throws -> ParkingSession {
+        guard session.isActive(at: now) else { throw ParkingSessionError.sessionEnded }
+
+        let extended = ParkingSession(
+            id: session.id,
+            userID: session.userID,
+            vehicle: session.vehicle,
+            lot: session.lot,
+            startedAt: session.startedAt,
+            expiresAt: session.expiresAt.addingTimeInterval(duration.timeInterval),
+            amountPaid: session.amountPaid + ParkingPricing.price(
+                hourlyRate: session.lot.hourlyRate,
+                minutes: duration.minutes
+            )
+        )
+
+        try repository.save(extended)
+        return extended
+    }
+
     func activeSession(for userID: UUID, at date: Date = .storageNow()) throws -> ParkingSession? {
         try repository.sessions(for: userID).first { $0.isActive(at: date) }
     }

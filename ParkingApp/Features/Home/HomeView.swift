@@ -6,6 +6,7 @@ struct HomeView: View {
     let environment: AppEnvironment
 
     @State private var viewModel: HomeViewModel
+    @State private var sessionBeingExtended: ParkingSession?
 
     init(user: User, environment: AppEnvironment) {
         self.user = user
@@ -57,6 +58,15 @@ struct HomeView: View {
             .task {
                 viewModel.refresh()
             }
+            .task(id: viewModel.activeSession?.id) {
+                await viewModel.waitForExpiry()
+            }
+            .sheet(item: $sessionBeingExtended) { session in
+                AddTimeView(session: session, sessionService: environment.sessionService) {
+                    sessionBeingExtended = nil
+                    viewModel.refresh()
+                }
+            }
         }
     }
 
@@ -75,13 +85,9 @@ struct HomeView: View {
 
     private func activeParking(_ session: ParkingSession) -> some View {
         Section("Active parking") {
-            LabeledContent("Street", value: session.lot.name)
-            LabeledContent("Vehicle", value: session.vehicle.licensePlate)
-            LabeledContent(
-                "Until",
-                value: session.expiresAt.formatted(date: .omitted, time: .shortened)
-            )
-            LabeledContent("Paid", value: session.formattedAmountPaid)
+            ActiveParkingCard(session: session) {
+                sessionBeingExtended = session
+            }
         }
     }
 
