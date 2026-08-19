@@ -6,27 +6,89 @@ import SwiftUI
 /// car the cards page sideways instead of stacking, so the overlay never grows past the
 /// bottom of the map.
 struct ActiveParkingOverlay: View {
+    /// How much of the next card stays on screen. Without it the card fills the width and
+    /// a second stay is invisible until the driver happens to swipe. It has to clear the
+    /// card's own corner radius, or all that shows is a sliver of rounded edge.
+    private static let visibleSliver: CGFloat = 32
+
     let sessions: [ParkingSession]
     let onAddTime: (ParkingSession) -> Void
 
+    @State private var scrolledSessionID: UUID?
+
+    private var hasMoreThanOne: Bool {
+        sessions.count > 1
+    }
+
     var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            if hasMoreThanOne {
+                pageHeader
+                    .padding(.horizontal, Theme.Spacing.medium)
+            }
+
+            cards
+        }
+    }
+
+    private var cards: some View {
         ScrollView(.horizontal) {
             HStack(spacing: Theme.Spacing.medium) {
                 ForEach(sessions) { session in
                     CompactParkingCard(session: session) {
                         onAddTime(session)
                     }
-                    .containerRelativeFrame(.horizontal)
+                    .containerRelativeFrame(.horizontal) { width, _ in
+                        guard hasMoreThanOne else { return width }
+                        return width - (Self.visibleSliver + Theme.Spacing.medium)
+                    }
                 }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $scrolledSessionID)
         .scrollIndicators(.hidden)
-        .scrollDisabled(sessions.count == 1)
+        .scrollDisabled(!hasMoreThanOne)
         // Insets the cards without breaking the paging: each one still spans the width it
         // scrolls by.
         .safeAreaPadding(.horizontal, Theme.Spacing.medium)
+    }
+
+    /// Says out loud that there is more than one stay, so the swipe is never the only clue.
+    private var pageHeader: some View {
+        HStack(spacing: Theme.Spacing.small) {
+            Text("\(sessions.count) cars parked")
+                .font(.caption.weight(.semibold))
+
+            Spacer()
+
+            HStack(spacing: 5) {
+                ForEach(sessions) { session in
+                    Circle()
+                        .fill(session.id == currentSessionID ? Color.primary : Color.secondary)
+                        .opacity(session.id == currentSessionID ? 1 : 0.4)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .accessibilityHidden(true)
+
+            Image(systemName: "chevron.compact.right")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, Theme.Spacing.medium)
+        .padding(.vertical, Theme.Spacing.extraSmall)
+        .background(.regularMaterial, in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(sessions.count) cars parked. Swipe sideways to see the others.")
+    }
+
+    /// Falls back to the first card, which is what the scroll view shows before it has
+    /// been moved at all.
+    private var currentSessionID: UUID? {
+        scrolledSessionID ?? sessions.first?.id
     }
 }
 
