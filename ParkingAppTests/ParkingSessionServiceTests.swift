@@ -69,24 +69,25 @@ struct ParkingSessionServiceTests {
         #expect(session.lot == lot)
     }
 
-    @Test("refuses a second session while one is running")
-    func refusesSecondSession() throws {
+    @Test("refuses to park the same vehicle twice at once")
+    func refusesSecondSessionForTheSameVehicle() throws {
         // Arrange
         let service = makeService()
         let user = UUID()
+        let vehicle = makeVehicle(ownerID: user)
         _ = try service.start(
             lot: makeLot(),
-            vehicle: makeVehicle(ownerID: user),
+            vehicle: vehicle,
             duration: .oneHour,
             userID: user,
             now: now
         )
 
         // Act & Assert
-        #expect(throws: ParkingSessionError.alreadyParked) {
+        #expect(throws: ParkingSessionError.vehicleAlreadyParked) {
             try service.start(
                 lot: makeLot(),
-                vehicle: makeVehicle(ownerID: user),
+                vehicle: vehicle,
                 duration: .oneHour,
                 userID: user,
                 now: now.addingTimeInterval(600)
@@ -94,12 +95,12 @@ struct ParkingSessionServiceTests {
         }
     }
 
-    @Test("allows a new session once the previous one has expired")
-    func allowsSessionAfterExpiry() throws {
+    @Test("parks two of the driver's vehicles at the same time")
+    func parksTwoVehiclesAtOnce() throws {
         // Arrange
         let service = makeService()
         let user = UUID()
-        _ = try service.start(
+        let first = try service.start(
             lot: makeLot(),
             vehicle: makeVehicle(ownerID: user),
             duration: .oneHour,
@@ -108,9 +109,66 @@ struct ParkingSessionServiceTests {
         )
 
         // Act
-        let session = try service.start(
+        let second = try service.start(
             lot: makeLot(),
             vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+
+        // Assert
+        let active = try service.activeSessions(for: user, at: now)
+        #expect(active.count == 2)
+        #expect(active.contains(first))
+        #expect(active.contains(second))
+    }
+
+    @Test("lists what runs out first at the top")
+    func sortsActiveSessionsByEnd() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let longStay = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .fourHours,
+            userID: user,
+            now: now
+        )
+        let shortStay = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .thirtyMinutes,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let active = try service.activeSessions(for: user, at: now)
+
+        // Assert
+        #expect(active == [shortStay, longStay])
+    }
+
+    @Test("parks a vehicle again once its previous stay has expired")
+    func allowsSessionAfterExpiry() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let vehicle = makeVehicle(ownerID: user)
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: vehicle,
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: vehicle,
             duration: .oneHour,
             userID: user,
             now: now.addingTimeInterval(3601)
@@ -179,8 +237,8 @@ struct ParkingSessionServiceTests {
         )
 
         // Act & Assert
-        #expect(try service.activeSession(for: user, at: now.addingTimeInterval(3599)) != nil)
-        #expect(try service.activeSession(for: user, at: now.addingTimeInterval(3600)) == nil)
+        #expect(try service.activeSessions(for: user, at: now.addingTimeInterval(3599)).count == 1)
+        #expect(try service.activeSessions(for: user, at: now.addingTimeInterval(3600)).isEmpty)
     }
 
     @Test("keeps expired sessions in the history")
@@ -308,7 +366,7 @@ struct ParkingSessionServiceTests {
         _ = try service.extend(session, by: .oneHour, now: now)
 
         // Assert: the original hour is up, the bought hour is not
-        #expect(try service.activeSession(for: user, at: now.addingTimeInterval(3601)) != nil)
+        #expect(try service.activeSessions(for: user, at: now.addingTimeInterval(3601)).count == 1)
     }
 
     @Test("refuses to add time to parking that has already ended")
@@ -328,6 +386,46 @@ struct ParkingSessionServiceTests {
         #expect(throws: ParkingSessionError.sessionEnded) {
             try service.extend(session, by: .oneHour, now: now.addingTimeInterval(3600))
         }
+    }
+
+    @Test("reports which vehicles are parked and which are free")
+    func reportsParkedVehicles() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let parked = makeVehicle(ownerID: user)
+        let free = makeVehicle(ownerID: user)
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: parked,
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let parkedIDs = try service.parkedVehicleIDs(for: user, at: now)
+
+        // Assert
+        #expect(parkedIDs == [parked.id])
+        #expect(!parkedIDs.contains(free.id))
+    }
+
+    @Test("frees a vehicle again once its stay has expired")
+    func reportsNoParkedVehiclesAfterExpiry() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        _ = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act & Assert
+        #expect(try service.parkedVehicleIDs(for: user, at: now.addingTimeInterval(3601)).isEmpty)
     }
 
     // MARK: - Helpers

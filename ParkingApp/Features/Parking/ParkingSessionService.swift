@@ -6,7 +6,7 @@ import Foundation
 struct ParkingSessionService: Sendable {
     let repository: ParkingSessionRepository
 
-    /// One session at a time per driver.
+    /// One session at a time per vehicle. A driver with two cars can park both.
     func start(
         lot: ParkingLot,
         vehicle: Vehicle,
@@ -15,8 +15,8 @@ struct ParkingSessionService: Sendable {
         now: Date = .storageNow()
     ) throws -> ParkingSession {
         guard lot.hasSpacesAvailable else { throw ParkingSessionError.lotIsFull }
-        guard try activeSession(for: userID, at: now) == nil else {
-            throw ParkingSessionError.alreadyParked
+        guard try activeSession(forVehicle: vehicle.id, userID: userID, at: now) == nil else {
+            throw ParkingSessionError.vehicleAlreadyParked
         }
 
         let session = ParkingSession(
@@ -59,8 +59,25 @@ struct ParkingSessionService: Sendable {
         return extended
     }
 
-    func activeSession(for userID: UUID, at date: Date = .storageNow()) throws -> ParkingSession? {
-        try repository.sessions(for: userID).first { $0.isActive(at: date) }
+    /// Everything the driver has parked right now, soonest to run out first.
+    func activeSessions(for userID: UUID, at date: Date = .storageNow()) throws -> [ParkingSession] {
+        try repository.sessions(for: userID)
+            .filter { $0.isActive(at: date) }
+            .sorted { $0.expiresAt < $1.expiresAt }
+    }
+
+    func activeSession(
+        forVehicle vehicleID: UUID,
+        userID: UUID,
+        at date: Date = .storageNow()
+    ) throws -> ParkingSession? {
+        try activeSessions(for: userID, at: date).first { $0.vehicle.id == vehicleID }
+    }
+
+    /// The vehicles that cannot be parked again until their stay runs out, so the screen
+    /// that starts parking can say so before the driver pays.
+    func parkedVehicleIDs(for userID: UUID, at date: Date = .storageNow()) throws -> Set<UUID> {
+        Set(try activeSessions(for: userID, at: date).map(\.vehicle.id))
     }
 
     func sessions(for userID: UUID) throws -> [ParkingSession] {

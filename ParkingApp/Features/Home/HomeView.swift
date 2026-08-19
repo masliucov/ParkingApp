@@ -34,8 +34,8 @@ struct HomeView: View {
             List {
                 greeting
 
-                if let session = viewModel.activeSession {
-                    activeParking(session)
+                if !viewModel.activeSessions.isEmpty {
+                    activeParking
                 }
 
                 Section {
@@ -67,7 +67,7 @@ struct HomeView: View {
             .task {
                 await viewModel.refresh()
             }
-            .task(id: viewModel.activeSession?.id) {
+            .task(id: viewModel.expiryKey) {
                 await viewModel.waitForExpiry()
             }
             .sheet(item: $sessionBeingExtended) { session in
@@ -92,10 +92,12 @@ struct HomeView: View {
         }
     }
 
-    private func activeParking(_ session: ParkingSession) -> some View {
+    private var activeParking: some View {
         Section("Active parking") {
-            ActiveParkingCard(session: session) {
-                sessionBeingExtended = session
+            ForEach(viewModel.activeSessions) { session in
+                ActiveParkingCard(session: session) {
+                    sessionBeingExtended = session
+                }
             }
         }
     }

@@ -12,10 +12,14 @@ The entire user interface is in **English**.
 - **Vehicles** — register cars by model and license plate, edit and delete them.
 - **Find parking** — a real map centred on you, with parking spots on nearby streets.
 - **Pay and park** — pick a vehicle and a duration, see the price, start parking.
-- **Live countdown** — the home screen counts down to the second.
+- **Several vehicles at once** — a driver with two cars can have both parked. Each
+  vehicle takes one stay at a time; the picker marks the ones already parked.
+- **Live countdown** — the home screen counts down to the second, one card per stay,
+  soonest to run out first.
 - **Add time** — buy more time; it is added to the end of the stay, never to the moment
   you tap the button.
-- **Reminders** — a local notification ten minutes before the end, and one when it ends.
+- **Reminders** — a local notification ten minutes before the end, and one when it ends,
+  for each stay.
 - **History** — every stay, with the street, the plate, how long and how much.
 
 ### What is simulated
@@ -94,7 +98,7 @@ which is close enough to look right and wrong enough to fail a comparison.
 
 ## Testing
 
-121 tests across 14 suites, all written with Swift Testing.
+125 tests across 14 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

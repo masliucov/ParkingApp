@@ -2,14 +2,14 @@ import Foundation
 
 /// Everything that can stop a parking session from starting.
 enum ParkingSessionError: LocalizedError, Equatable {
-    case alreadyParked
+    case vehicleAlreadyParked
     case lotIsFull
     case sessionEnded
 
     var errorDescription: String? {
         switch self {
-        case .alreadyParked:
-            return "You already have parking running. Wait for it to end before starting another."
+        case .vehicleAlreadyParked:
+            return "This vehicle is already parked. Add time to it instead of starting again."
         case .lotIsFull:
             return "This spot has no free spaces right now."
         case .sessionEnded:

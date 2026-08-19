@@ -4,7 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class HomeViewModel {
-    private(set) var activeSession: ParkingSession?
+    private(set) var activeSessions: [ParkingSession] = []
     private(set) var errorMessage: String?
 
     private let sessionService: ParkingSessionService
@@ -21,26 +21,33 @@ final class HomeViewModel {
         self.userID = userID
     }
 
-    /// Reads the running session and puts the reminders in step with it. Every path that
+    /// Changes whenever a stay starts, ends or gains time, so the wait below restarts.
+    var expiryKey: String {
+        activeSessions
+            .map { "\($0.id.uuidString):\(Int($0.expiresAt.timeIntervalSince1970))" }
+            .joined(separator: "|")
+    }
+
+    /// Reads what is parked and puts the reminders in step with it. Every path that
     /// changes parking ends up here, so there is one place where the two can disagree.
     func refresh() async {
         do {
-            activeSession = try sessionService.activeSession(for: userID)
+            activeSessions = try sessionService.activeSessions(for: userID)
             errorMessage = nil
         } catch {
-            activeSession = nil
+            activeSessions = []
             errorMessage = error.localizedDescription
         }
 
-        await notifications.reschedule(for: activeSession)
+        await notifications.reschedule(for: activeSessions)
     }
 
-    /// Waits out the running session, then refreshes so the card disappears the moment
-    /// the time is up.
+    /// Waits for the next stay to run out, then refreshes so its card disappears the
+    /// moment the time is up.
     func waitForExpiry() async {
-        guard let session = activeSession else { return }
+        guard let next = activeSessions.map(\.expiresAt).min() else { return }
 
-        let remaining = session.remainingTime(at: Date())
+        let remaining = max(0, next.timeIntervalSince(Date()))
         guard remaining > 0 else {
             await refresh()
             return

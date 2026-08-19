@@ -22,6 +22,19 @@ struct StartParkingView: View {
         )
     }
 
+    @ViewBuilder
+    private func vehicleRow(_ vehicle: Vehicle) -> some View {
+        let label = "\(vehicle.model) · \(vehicle.licensePlate)"
+
+        if viewModel.isParked(vehicle) {
+            // Inline pickers hand their rows a single label, so the state has to travel
+            // in the text itself to survive being drawn as a picker option.
+            Text("\(label) — already parked")
+        } else {
+            Text(label)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -34,7 +47,7 @@ struct StartParkingView: View {
                     if viewModel.hasVehicles {
                         Picker("Vehicle", selection: $viewModel.selectedVehicleID) {
                             ForEach(viewModel.vehicles) { vehicle in
-                                Text("\(vehicle.model) · \(vehicle.licensePlate)")
+                                vehicleRow(vehicle)
                                     .tag(Optional(vehicle.id))
                             }
                         }

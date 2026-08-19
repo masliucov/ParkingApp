@@ -6,41 +6,53 @@ import UserNotifications
 /// Permission is asked for the first time there is something worth scheduling, rather
 /// than at launch, so the request arrives with a reason attached.
 struct ParkingNotifications: Sendable {
-    private static let reminderIdentifier = "parking.reminder"
-    private static let expiryIdentifier = "parking.expiry"
+    /// Every reminder this app schedules carries this prefix, which is what makes it
+    /// safe to clear them all and rebuild from the sessions that are actually running.
+    private static let identifierPrefix = "parking."
 
-    /// Replaces any pending reminders with ones matching `session`. Passing nil just
-    /// clears them, which is what happens when parking ends.
-    func reschedule(for session: ParkingSession?, now: Date = Date()) async {
+    /// Replaces the pending reminders with ones matching `sessions`. An empty list just
+    /// clears them, which is what happens when the last stay ends.
+    func reschedule(for sessions: [ParkingSession], now: Date = Date()) async {
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(
-            withIdentifiers: [Self.reminderIdentifier, Self.expiryIdentifier]
-        )
+        await clearPendingReminders(in: center)
 
-        guard let session else { return }
+        let plans = sessions.map { ($0, ParkingReminder.plan(for: $0, at: now)) }
+            .filter { !$0.1.isEmpty }
 
-        let plan = ParkingReminder.plan(for: session, at: now)
-        guard !plan.isEmpty, await isAuthorized() else { return }
+        guard !plans.isEmpty, await isAuthorized() else { return }
 
         let minutes = Int(ParkingReminder.leadTime / 60)
 
-        if let delay = plan.reminderDelay {
-            await add(
-                identifier: Self.reminderIdentifier,
-                title: "Parking ends soon",
-                body: "\(session.vehicle.licensePlate) at \(session.lot.name) ends in \(minutes) minutes.",
-                after: delay
-            )
-        }
+        for (session, plan) in plans {
+            let plate = session.vehicle.licensePlate
 
-        if let delay = plan.expiryDelay {
-            await add(
-                identifier: Self.expiryIdentifier,
-                title: "Parking has ended",
-                body: "\(session.vehicle.licensePlate) at \(session.lot.name).",
-                after: delay
-            )
+            if let delay = plan.reminderDelay {
+                await add(
+                    identifier: "\(Self.identifierPrefix)reminder.\(session.id.uuidString)",
+                    title: "Parking ends soon",
+                    body: "\(plate) at \(session.lot.name) ends in \(minutes) minutes.",
+                    after: delay
+                )
+            }
+
+            if let delay = plan.expiryDelay {
+                await add(
+                    identifier: "\(Self.identifierPrefix)expiry.\(session.id.uuidString)",
+                    title: "Parking has ended",
+                    body: "\(plate) at \(session.lot.name).",
+                    after: delay
+                )
+            }
         }
+    }
+
+    private func clearPendingReminders(in center: UNUserNotificationCenter) async {
+        let identifiers = await center.pendingNotificationRequests()
+            .map(\.identifier)
+            .filter { $0.hasPrefix(Self.identifierPrefix) }
+
+        guard !identifiers.isEmpty else { return }
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 
     private func isAuthorized() async -> Bool {
