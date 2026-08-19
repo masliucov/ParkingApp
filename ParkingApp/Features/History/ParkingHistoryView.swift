@@ -3,7 +3,14 @@ import SwiftUI
 struct ParkingHistoryView: View {
     @State private var viewModel: ParkingHistoryViewModel
 
-    init(sessionService: ParkingSessionService, userID: UUID) {
+    private let onShowOnMap: (ParkingLot) -> Void
+
+    init(
+        sessionService: ParkingSessionService,
+        userID: UUID,
+        onShowOnMap: @escaping (ParkingLot) -> Void
+    ) {
+        self.onShowOnMap = onShowOnMap
         _viewModel = State(
             initialValue: ParkingHistoryViewModel(sessionService: sessionService, userID: userID)
         )
@@ -33,7 +40,9 @@ struct ParkingHistoryView: View {
             }
         } else {
             List(viewModel.sessions) { session in
-                ParkingHistoryRow(session: session)
+                ParkingHistoryRow(session: session) {
+                    onShowOnMap(session.lot)
+                }
             }
         }
     }
@@ -48,12 +57,12 @@ struct ParkingHistoryView: View {
 
 private struct ParkingHistoryRow: View {
     let session: ParkingSession
+    let onShowOnMap: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
             HStack {
-                Text(session.lot.name)
-                    .font(.body.weight(.medium))
+                street
 
                 Spacer()
 
@@ -75,6 +84,25 @@ private struct ParkingHistoryRow: View {
         }
         .padding(.vertical, Theme.Spacing.extraSmall)
     }
+
+    /// Tapping the street opens it on the map. The row itself stays inert: the rest of it
+    /// is a receipt, and nothing else here is worth a tap.
+    private var street: some View {
+        Button(action: onShowOnMap) {
+            HStack(spacing: Theme.Spacing.extraSmall) {
+                Text(session.lot.name)
+                    .font(.body.weight(.medium))
+                    .multilineTextAlignment(.leading)
+
+                Image(systemName: "map")
+                    .font(.footnote)
+            }
+            .foregroundStyle(Color.accentColor)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(session.lot.name), show on map")
+        .accessibilityAddTraits(.isButton)
+    }
 }
 
 #Preview {
@@ -83,7 +111,8 @@ private struct ParkingHistoryRow: View {
             sessionService: ParkingSessionService(
                 repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore())
             ),
-            userID: UUID()
+            userID: UUID(),
+            onShowOnMap: { _ in }
         )
     }
 }

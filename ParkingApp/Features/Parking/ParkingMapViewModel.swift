@@ -42,8 +42,17 @@ final class ParkingMapViewModel {
     }
 
     /// What the map draws: everything found, or what matches the code or street typed.
+    ///
+    /// A spot opened from the history is added on top, because it is somewhere the driver
+    /// parked before rather than something this search turned up, and it would otherwise
+    /// have a card with no pin under it.
     var visibleLots: [ParkingLot] {
-        ParkingLotSearch.matching(query, in: lots)
+        let matches = ParkingLotSearch.matching(query, in: lots)
+
+        guard let selectedLot, !matches.contains(where: { $0.id == selectedLot.id }) else {
+            return matches
+        }
+        return matches + [selectedLot]
     }
 
     /// A search that hides every spot needs saying, otherwise the map just looks empty.

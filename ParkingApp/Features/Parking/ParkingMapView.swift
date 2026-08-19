@@ -2,19 +2,30 @@ import MapKit
 import SwiftUI
 
 struct ParkingMapView: View {
+    /// Close enough to see which side of the street the spot was on.
+    private static let focusedSpan: CLLocationDistance = 400
+
     @State private var viewModel: ParkingMapViewModel
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var lotBeingBooked: ParkingLot?
     @State private var sessionBeingExtended: ParkingSession?
 
+    @Binding private var lotToShow: ParkingLot?
+
     private let user: User
     private let environment: AppEnvironment
     private let activeParking: ActiveParkingViewModel
 
-    init(user: User, environment: AppEnvironment, activeParking: ActiveParkingViewModel) {
+    init(
+        user: User,
+        environment: AppEnvironment,
+        activeParking: ActiveParkingViewModel,
+        lotToShow: Binding<ParkingLot?>
+    ) {
         self.user = user
         self.environment = environment
         self.activeParking = activeParking
+        _lotToShow = lotToShow
         _viewModel = State(
             initialValue: ParkingMapViewModel(locationProvider: environment.locationProvider)
         )
@@ -35,6 +46,10 @@ struct ParkingMapView: View {
             .onChange(of: viewModel.query) {
                 // The card would otherwise outlive the pin the search just hid.
                 viewModel.clearSelection()
+            }
+            .onChange(of: lotToShow) { _, lot in
+                guard let lot else { return }
+                show(lot)
             }
             .task {
                 viewModel.requestLocation()
@@ -161,6 +176,21 @@ struct ParkingMapView: View {
         .padding(Theme.Spacing.medium)
     }
 
+    /// Opens a spot arriving from the history. It is almost certainly not among what the
+    /// map just found nearby, so the search is cleared and the camera goes to it.
+    private func show(_ lot: ParkingLot) {
+        viewModel.query = ""
+        viewModel.select(lot)
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: lot.coordinate,
+                latitudinalMeters: Self.focusedSpan,
+                longitudinalMeters: Self.focusedSpan
+            )
+        )
+        lotToShow = nil
+    }
+
     private func retry() {
         Task {
             await viewModel.loadLots()
@@ -251,7 +281,8 @@ private struct ParkingLotCard: View {
                 sessionService: environment.sessionService,
                 notifications: environment.notifications,
                 userID: user.id
-            )
+            ),
+            lotToShow: .constant(nil)
         )
     }
 }

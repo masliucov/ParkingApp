@@ -6,6 +6,13 @@ struct MainTabView: View {
     let environment: AppEnvironment
 
     @State private var viewModel: ActiveParkingViewModel
+    @State private var selectedTab: AppTab = .map
+    /// Set by the history, read once by the map, which clears it.
+    @State private var lotToShow: ParkingLot?
+
+    private enum AppTab: Hashable {
+        case map, vehicles, history, settings
+    }
 
     init(user: User, environment: AppEnvironment) {
         self.user = user
@@ -20,29 +27,35 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        TabView {
-            Tab("Map", systemImage: "map.fill") {
+        TabView(selection: $selectedTab) {
+            Tab("Map", systemImage: "map.fill", value: .map) {
                 NavigationStack {
-                    ParkingMapView(user: user, environment: environment, activeParking: viewModel)
+                    ParkingMapView(
+                        user: user,
+                        environment: environment,
+                        activeParking: viewModel,
+                        lotToShow: $lotToShow
+                    )
                 }
             }
 
-            Tab("Vehicles", systemImage: "car.fill") {
+            Tab("Vehicles", systemImage: "car.fill", value: .vehicles) {
                 NavigationStack {
                     VehicleListView(vehicleService: environment.vehicleService, ownerID: user.id)
                 }
             }
 
-            Tab("History", systemImage: "clock.arrow.circlepath") {
+            Tab("History", systemImage: "clock.arrow.circlepath", value: .history) {
                 NavigationStack {
                     ParkingHistoryView(
                         sessionService: environment.sessionService,
-                        userID: user.id
+                        userID: user.id,
+                        onShowOnMap: show(on:)
                     )
                 }
             }
 
-            Tab("Settings", systemImage: "gearshape.fill") {
+            Tab("Settings", systemImage: "gearshape.fill", value: .settings) {
                 NavigationStack {
                     SettingsView(
                         authService: environment.authService,
@@ -59,6 +72,13 @@ struct MainTabView: View {
         .task(id: viewModel.expiryKey) {
             await viewModel.waitForExpiry()
         }
+    }
+
+    /// Hands the spot to the map and switches to it, which is the only way the two tabs
+    /// talk to each other.
+    private func show(on lot: ParkingLot) {
+        lotToShow = lot
+        selectedTab = .map
     }
 }
 

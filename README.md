@@ -23,7 +23,8 @@ The entire user interface is in **English**.
   you tap the button.
 - **Reminders** — a local notification ten minutes before the end, and one when it ends,
   for each stay.
-- **History** — every stay, with the street, the plate, how long and how much.
+- **History** — every stay, with the street, the plate, how long and how much. Tapping the
+  street opens it on the map.
 
 ### What is simulated
 
