@@ -45,6 +45,13 @@ struct VehicleService: Sendable {
     /// A car that is parked cannot be removed. The stay is paid for and still counting
     /// down, and the card on the home screen would be left naming a car the driver can no
     /// longer find in the app.
+    /// Which of the owner's vehicles are parked, and so can be neither deleted nor parked
+    /// again. One door for the Vehicles feature, rather than every screen reaching through
+    /// to the parking service for itself.
+    func parkedVehicleIDs(ownedBy ownerID: UUID, now: Date = .storageNow()) throws -> Set<UUID> {
+        try sessionService.parkedVehicleIDs(for: ownerID, at: now)
+    }
+
     func delete(_ vehicle: Vehicle, now: Date = .storageNow()) throws {
         let isParked = try sessionService.activeSession(
             forVehicle: vehicle.id,

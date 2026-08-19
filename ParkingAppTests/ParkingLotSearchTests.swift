@@ -75,6 +75,67 @@ struct ParkingLotSearchTests {
         #expect(ParkingLotSearch.matching(missing, in: lots).isEmpty)
     }
 
+    // MARK: - Nearby and remembered
+
+    @Test("looks only at what is nearby while nothing is typed")
+    func ignoresRememberedForAnEmptyQuery() {
+        // Arrange
+        let nearby = [makeLot(name: "Rua Augusta")]
+        let remembered = [makeLot(name: "Praça do Comércio")]
+
+        // Act
+        let matches = ParkingLotSearch.matching("", nearby: nearby, remembered: remembered)
+
+        // Assert: the map would otherwise fill with every spot ever parked at
+        #expect(matches == nearby)
+    }
+
+    @Test("finds a spot from the history that this search did not turn up")
+    func findsRememberedLot() {
+        // Arrange
+        let nearby = [makeLot(name: "Rua Augusta")]
+        let parkedBefore = makeLot(name: "Praça do Comércio")
+
+        // Act
+        let matches = ParkingLotSearch.matching(
+            parkedBefore.code,
+            nearby: nearby,
+            remembered: [parkedBefore]
+        )
+
+        // Assert
+        #expect(matches == [parkedBefore])
+    }
+
+    @Test("puts what is nearby before what is only remembered")
+    func ranksNearbyFirst() {
+        // Arrange
+        let nearby = makeLot(name: "Rua Augusta")
+        let parkedBefore = makeLot(name: "Rua Augusta Nova")
+
+        // Act
+        let matches = ParkingLotSearch.matching(
+            "Rua Augusta",
+            nearby: [nearby],
+            remembered: [parkedBefore]
+        )
+
+        // Assert
+        #expect(matches == [nearby, parkedBefore])
+    }
+
+    @Test("does not list a spot twice when it is both nearby and remembered")
+    func doesNotRepeatALot() {
+        // Arrange
+        let lot = makeLot(name: "Rua Augusta")
+
+        // Act
+        let matches = ParkingLotSearch.matching("Rua Augusta", nearby: [lot], remembered: [lot])
+
+        // Assert
+        #expect(matches == [lot])
+    }
+
     // MARK: - Helpers
 
     private func makeLot(name: String) -> ParkingLot {

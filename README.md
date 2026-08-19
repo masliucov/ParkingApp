@@ -11,9 +11,11 @@ The entire user interface is in **English**.
 - **Accounts** — sign up and sign in; the session survives closing the app.
 - **Vehicles** — register cars by brand and license plate, edit and delete them. The
   brand is picked from a searchable list rather than typed, so it is spelled one way.
-  A car that is parked cannot be deleted until its stay ends.
+  A car that is parked is marked as such in the list, and cannot be deleted until its
+  stay ends.
 - **Find parking** — a real map centred on you, with parking spots on nearby streets.
-  Every spot carries a four-digit code, and the map searches by code or street name.
+  Every spot carries a four-digit code, and the map searches by code or street name —
+  including spots parked at before, so a code off an old receipt still finds them.
 - **Pay and park** — pick a vehicle and a duration, see the price, start parking.
 - **Several vehicles at once** — a driver with two cars can have both parked. Each
   vehicle takes one stay at a time; the picker marks the ones already parked.
@@ -21,6 +23,8 @@ The entire user interface is in **English**.
   soonest to run out first; with more than one car the cards page sideways.
 - **Add time** — buy more time; it is added to the end of the stay, never to the moment
   you tap the button.
+- **Leave early** — end a stay before the time bought runs out. Nothing is refunded, and
+  the history keeps what was paid.
 - **Reminders** — a local notification ten minutes before the end, and one when it ends,
   for each stay.
 - **History** — every stay, with the street, the plate, how long and how much. Tapping the
@@ -108,7 +112,7 @@ which is close enough to look right and wrong enough to fail a comparison.
 
 ## Testing
 
-143 tests across 17 suites, all written with Swift Testing.
+153 tests across 17 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

@@ -5,6 +5,7 @@ import Observation
 @Observable
 final class VehicleListViewModel {
     private(set) var vehicles: [Vehicle] = []
+    private(set) var parkedVehicleIDs: Set<UUID> = []
     private(set) var errorMessage: String?
 
     var isAddingVehicle = false
@@ -21,10 +22,17 @@ final class VehicleListViewModel {
     func load() {
         do {
             vehicles = try service.vehicles(ownedBy: ownerID)
+            parkedVehicleIDs = try service.parkedVehicleIDs(ownedBy: ownerID)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// A parked car cannot be deleted, so the list says so rather than letting the driver
+    /// find out from a failed swipe.
+    func isParked(_ vehicle: Vehicle) -> Bool {
+        parkedVehicleIDs.contains(vehicle.id)
     }
 
     /// Reloads whatever happened, so a car that refused to be deleted stays on screen

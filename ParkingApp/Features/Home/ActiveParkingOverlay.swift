@@ -13,6 +13,7 @@ struct ActiveParkingOverlay: View {
 
     let sessions: [ParkingSession]
     let onAddTime: (ParkingSession) -> Void
+    let onEnd: (ParkingSession) -> Void
 
     @State private var scrolledSessionID: UUID?
 
@@ -35,9 +36,11 @@ struct ActiveParkingOverlay: View {
         ScrollView(.horizontal) {
             HStack(spacing: Theme.Spacing.medium) {
                 ForEach(sessions) { session in
-                    CompactParkingCard(session: session) {
-                        onAddTime(session)
-                    }
+                    CompactParkingCard(
+                        session: session,
+                        onAddTime: { onAddTime(session) },
+                        onEnd: { onEnd(session) }
+                    )
                     .containerRelativeFrame(.horizontal) { width, _ in
                         guard hasMoreThanOne else { return width }
                         return width - (Self.visibleSliver + Theme.Spacing.medium)
@@ -95,6 +98,7 @@ struct ActiveParkingOverlay: View {
 private struct CompactParkingCard: View {
     let session: ParkingSession
     let onAddTime: () -> Void
+    let onEnd: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -112,8 +116,14 @@ private struct CompactParkingCard: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
 
-            Button("Add time", action: onAddTime)
-                .buttonStyle(.primary)
+            HStack(spacing: Theme.Spacing.small) {
+                Button("Add time", action: onAddTime)
+                    .buttonStyle(.primary)
+
+                Button("End", role: .destructive, action: onEnd)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+            }
         }
         .padding(Theme.Spacing.medium)
         .frame(maxWidth: .infinity, alignment: .leading)

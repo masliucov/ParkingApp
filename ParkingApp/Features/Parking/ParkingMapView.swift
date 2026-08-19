@@ -9,6 +9,7 @@ struct ParkingMapView: View {
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var lotBeingBooked: ParkingLot?
     @State private var sessionBeingExtended: ParkingSession?
+    @State private var sessionBeingEnded: ParkingSession?
 
     @Binding private var lotToShow: ParkingLot?
 
@@ -27,7 +28,11 @@ struct ParkingMapView: View {
         self.activeParking = activeParking
         _lotToShow = lotToShow
         _viewModel = State(
-            initialValue: ParkingMapViewModel(locationProvider: environment.locationProvider)
+            initialValue: ParkingMapViewModel(
+                locationProvider: environment.locationProvider,
+                sessionService: environment.sessionService,
+                userID: user.id
+            )
         )
     }
 
@@ -53,6 +58,11 @@ struct ParkingMapView: View {
             }
             .task {
                 viewModel.requestLocation()
+                viewModel.loadRememberedLots()
+            }
+            .onChange(of: activeParking.activeSessions) {
+                // A stay that just started or ended may have added a spot worth searching.
+                viewModel.loadRememberedLots()
             }
             .task(id: viewModel.searchKey) {
                 await viewModel.loadLots()
@@ -74,6 +84,22 @@ struct ParkingMapView: View {
                     sessionBeingExtended = nil
                     Task { await activeParking.refresh() }
                 }
+            }
+            .confirmationDialog(
+                "End parking now?",
+                isPresented: isConfirmingEnd,
+                titleVisibility: .visible,
+                presenting: sessionBeingEnded
+            ) { session in
+                Button("End parking", role: .destructive) {
+                    sessionBeingEnded = nil
+                    Task { await activeParking.end(session) }
+                }
+                Button("Cancel", role: .cancel) {
+                    sessionBeingEnded = nil
+                }
+            } message: { session in
+                Text("\(session.vehicle.licensePlate) frees the spot now. Time already paid for is not refunded.")
             }
     }
 
@@ -122,6 +148,12 @@ struct ParkingMapView: View {
             banner(message: searchErrorMessage, actionTitle: "Try again", action: retry)
         } else if viewModel.hasNoNearbyParking {
             banner(message: "No street parking found around here.", actionTitle: "Try again", action: retry)
+        } else if let parkingErrorMessage = activeParking.errorMessage {
+            banner(
+                message: parkingErrorMessage,
+                actionTitle: "OK",
+                action: activeParking.dismissError
+            )
         } else if viewModel.hasNoMatches {
             banner(message: "No parking here matches “\(viewModel.query)”.", actionTitle: "Clear") {
                 viewModel.query = ""
@@ -143,9 +175,11 @@ struct ParkingMapView: View {
             .padding(Theme.Spacing.medium)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         } else if !activeParking.activeSessions.isEmpty {
-            ActiveParkingOverlay(sessions: activeParking.activeSessions) { session in
-                sessionBeingExtended = session
-            }
+            ActiveParkingOverlay(
+                sessions: activeParking.activeSessions,
+                onAddTime: { sessionBeingExtended = $0 },
+                onEnd: { sessionBeingEnded = $0 }
+            )
             .padding(.vertical, Theme.Spacing.medium)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
@@ -195,6 +229,15 @@ struct ParkingMapView: View {
         Task {
             await viewModel.loadLots()
         }
+    }
+
+    private var isConfirmingEnd: Binding<Bool> {
+        Binding(
+            get: { sessionBeingEnded != nil },
+            set: { isPresented in
+                if !isPresented { sessionBeingEnded = nil }
+            }
+        )
     }
 
     private func openSystemSettings() {

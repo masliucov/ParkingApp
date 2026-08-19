@@ -59,6 +59,26 @@ struct ParkingSessionService: Sendable {
         return extended
     }
 
+    /// Ends a stay now rather than at the hour it was paid up to, for the driver who
+    /// leaves early. Nothing is refunded: `amountPaid` stays as it was, which is what the
+    /// history goes on reporting.
+    func end(_ session: ParkingSession, now: Date = .storageNow()) throws -> ParkingSession {
+        guard session.isActive(at: now) else { throw ParkingSessionError.sessionEnded }
+
+        let ended = ParkingSession(
+            id: session.id,
+            userID: session.userID,
+            vehicle: session.vehicle,
+            lot: session.lot,
+            startedAt: session.startedAt,
+            expiresAt: now,
+            amountPaid: session.amountPaid
+        )
+
+        try repository.save(ended)
+        return ended
+    }
+
     /// Everything the driver has parked right now, soonest to run out first.
     func activeSessions(for userID: UUID, at date: Date = .storageNow()) throws -> [ParkingSession] {
         try repository.sessions(for: userID)

@@ -14,5 +14,24 @@ enum ParkingLotSearch {
         }
     }
 
+    /// Searches what is around the driver and, failing that, the spots they have parked at
+    /// before — which is the whole point of a code you can read off an old receipt.
+    ///
+    /// An empty query is not a search: it stays on what is nearby, because dropping every
+    /// remembered spot onto the map would bury the ones actually within walking distance.
+    static func matching(
+        _ query: String,
+        nearby: [ParkingLot],
+        remembered: [ParkingLot]
+    ) -> [ParkingLot] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nearby }
+
+        let found = matching(trimmed, in: nearby)
+        let foundIDs = Set(found.map(\.id))
+
+        return found + matching(trimmed, in: remembered).filter { !foundIDs.contains($0.id) }
+    }
+
     private static let nameOptions: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
 }

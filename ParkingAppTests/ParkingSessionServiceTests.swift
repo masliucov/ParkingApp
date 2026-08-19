@@ -388,6 +388,116 @@ struct ParkingSessionServiceTests {
         }
     }
 
+    @Test("ends a stay right away instead of at the time bought")
+    func endsStayEarly() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+        let leavingEarly = now.addingTimeInterval(600)
+
+        // Act
+        let ended = try service.end(session, now: leavingEarly)
+
+        // Assert
+        #expect(ended.expiresAt == leavingEarly)
+        #expect(!ended.isActive(at: leavingEarly))
+        #expect(try service.activeSessions(for: user, at: leavingEarly).isEmpty)
+    }
+
+    @Test("keeps what was paid when parking ends early")
+    func keepsAmountPaidWhenEndingEarly() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(150)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let ended = try service.end(session, now: now.addingTimeInterval(600))
+
+        // Assert
+        #expect(ended.amountPaid == session.amountPaid)
+    }
+
+    @Test("keeps a stay that ended early in the history")
+    func keepsEndedStayInHistory() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        let ended = try service.end(session, now: now.addingTimeInterval(600))
+
+        // Assert
+        #expect(try service.sessions(for: user) == [ended])
+    }
+
+    @Test("frees the vehicle to be parked again once the stay is ended")
+    func freesVehicleAfterEndingEarly() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let vehicle = makeVehicle(ownerID: user)
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: vehicle,
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+        let leavingEarly = now.addingTimeInterval(600)
+        _ = try service.end(session, now: leavingEarly)
+
+        // Act & Assert: starting again would throw if the vehicle still counted as parked
+        #expect(throws: Never.self) {
+            try service.start(
+                lot: makeLot(),
+                vehicle: vehicle,
+                duration: .oneHour,
+                userID: user,
+                now: leavingEarly
+            )
+        }
+    }
+
+    @Test("refuses to end parking that has already ended")
+    func refusesToEndFinishedParking() throws {
+        // Arrange
+        let service = makeService()
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act & Assert
+        #expect(throws: ParkingSessionError.sessionEnded) {
+            try service.end(session, now: now.addingTimeInterval(3600))
+        }
+    }
+
     @Test("reports which vehicles are parked and which are free")
     func reportsParkedVehicles() throws {
         // Arrange

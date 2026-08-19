@@ -226,6 +226,28 @@ struct VehicleServiceTests {
         #expect(try service.vehicles(ownedBy: owner).isEmpty)
     }
 
+    @Test("reports which of the owner's vehicles are parked")
+    func reportsParkedVehicles() throws {
+        // Arrange
+        let store = InMemoryKeyValueStore()
+        let service = makeService(store: store)
+        let owner = UUID()
+        let parked = try service.register(
+            model: "Renault",
+            licensePlate: "AA-00-BB",
+            ownerID: owner
+        )
+        let free = try service.register(model: "Peugeot", licensePlate: "CC-11-DD", ownerID: owner)
+        try park(parked, ownerID: owner, in: store)
+
+        // Act
+        let parkedIDs = try service.parkedVehicleIDs(ownedBy: owner, now: now)
+
+        // Assert
+        #expect(parkedIDs == [parked.id])
+        #expect(!parkedIDs.contains(free.id))
+    }
+
     // MARK: - Helpers
 
     private let now = Date(timeIntervalSince1970: 1_755_000_000)

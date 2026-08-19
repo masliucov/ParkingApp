@@ -65,7 +65,7 @@ struct VehicleListView: View {
                     Button {
                         viewModel.vehicleBeingEdited = vehicle
                     } label: {
-                        VehicleRow(vehicle: vehicle)
+                        VehicleRow(vehicle: vehicle, isParked: viewModel.isParked(vehicle))
                     }
                     .buttonStyle(.plain)
                 }
@@ -99,6 +99,7 @@ struct VehicleListView: View {
 
 private struct VehicleRow: View {
     let vehicle: Vehicle
+    let isParked: Bool
 
     var body: some View {
         HStack(spacing: Theme.Spacing.medium) {
@@ -109,9 +110,16 @@ private struct VehicleRow: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
                 Text(vehicle.model)
                     .font(.body.weight(.medium))
-                Text(vehicle.licensePlate)
-                    .font(.footnote.monospaced())
-                    .foregroundStyle(.secondary)
+
+                HStack(spacing: Theme.Spacing.small) {
+                    Text(vehicle.licensePlate)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+
+                    if isParked {
+                        parkedBadge
+                    }
+                }
             }
 
             Spacer()
@@ -122,6 +130,16 @@ private struct VehicleRow: View {
                 .accessibilityHidden(true)
         }
         .padding(.vertical, Theme.Spacing.extraSmall)
+    }
+
+    private var parkedBadge: some View {
+        Text("Parked")
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, Theme.Spacing.small)
+            .padding(.vertical, 2)
+            .background(Color.accentColor.opacity(0.15), in: Capsule())
+            .foregroundStyle(Color.accentColor)
+            .accessibilityLabel("Parked right now")
     }
 }
 

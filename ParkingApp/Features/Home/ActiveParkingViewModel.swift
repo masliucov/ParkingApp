@@ -46,6 +46,22 @@ final class ActiveParkingViewModel {
         await notifications.reschedule(for: activeSessions)
     }
 
+    /// Stops a stay before the time bought runs out, for the driver who leaves early.
+    func end(_ session: ParkingSession) async {
+        do {
+            _ = try sessionService.end(session)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+
+        await refresh()
+    }
+
+    func dismissError() {
+        errorMessage = nil
+    }
+
     /// Waits for the next stay to run out, then refreshes so its card disappears the
     /// moment the time is up.
     func waitForExpiry() async {

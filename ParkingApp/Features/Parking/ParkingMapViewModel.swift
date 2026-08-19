@@ -13,11 +13,24 @@ final class ParkingMapViewModel {
     var selectedLot: ParkingLot?
     var query = ""
 
+    /// Spots the driver has parked at before, searchable by code even when they are miles
+    /// away. Only consulted once something is typed.
+    private(set) var rememberedLots: [ParkingLot] = []
+
     private let locationProvider: LocationProvider
     private let finder: StreetParkingFinder
+    private let sessionService: ParkingSessionService
+    private let userID: UUID
 
-    init(locationProvider: LocationProvider, finder: StreetParkingFinder = StreetParkingFinder()) {
+    init(
+        locationProvider: LocationProvider,
+        sessionService: ParkingSessionService,
+        userID: UUID,
+        finder: StreetParkingFinder = StreetParkingFinder()
+    ) {
         self.locationProvider = locationProvider
+        self.sessionService = sessionService
+        self.userID = userID
         self.finder = finder
     }
 
@@ -47,12 +60,28 @@ final class ParkingMapViewModel {
     /// parked before rather than something this search turned up, and it would otherwise
     /// have a card with no pin under it.
     var visibleLots: [ParkingLot] {
-        let matches = ParkingLotSearch.matching(query, in: lots)
+        let matches = ParkingLotSearch.matching(
+            query,
+            nearby: lots,
+            remembered: rememberedLots
+        )
 
         guard let selectedLot, !matches.contains(where: { $0.id == selectedLot.id }) else {
             return matches
         }
         return matches + [selectedLot]
+    }
+
+    /// Collects the distinct spots out of the driver's stays, newest first, so a code from
+    /// a recent receipt is the one found soonest.
+    func loadRememberedLots() {
+        guard let sessions = try? sessionService.sessions(for: userID) else { return }
+
+        var seen = Set<String>()
+        rememberedLots = sessions
+            .reversed()
+            .map(\.lot)
+            .filter { seen.insert($0.id).inserted }
     }
 
     /// A search that hides every spot needs saying, otherwise the map just looks empty.
