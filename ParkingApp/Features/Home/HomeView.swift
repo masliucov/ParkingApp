@@ -12,7 +12,11 @@ struct HomeView: View {
         self.user = user
         self.environment = environment
         _viewModel = State(
-            initialValue: HomeViewModel(sessionService: environment.sessionService, userID: user.id)
+            initialValue: HomeViewModel(
+                sessionService: environment.sessionService,
+                notifications: environment.notifications,
+                userID: user.id
+            )
         )
     }
 
@@ -21,6 +25,7 @@ struct HomeView: View {
     private enum Destination: Hashable {
         case parking
         case vehicles
+        case history
         case settings
     }
 
@@ -42,6 +47,10 @@ struct HomeView: View {
                         Label("My vehicles", systemImage: "car.fill")
                     }
 
+                    NavigationLink(value: Destination.history) {
+                        Label("History", systemImage: "clock.arrow.circlepath")
+                    }
+
                     NavigationLink(value: Destination.settings) {
                         Label("Settings", systemImage: "gearshape.fill")
                     }
@@ -56,7 +65,7 @@ struct HomeView: View {
             .navigationTitle("ParkingApp")
             .navigationDestination(for: Destination.self, destination: view(for:))
             .task {
-                viewModel.refresh()
+                await viewModel.refresh()
             }
             .task(id: viewModel.activeSession?.id) {
                 await viewModel.waitForExpiry()
@@ -64,7 +73,7 @@ struct HomeView: View {
             .sheet(item: $sessionBeingExtended) { session in
                 AddTimeView(session: session, sessionService: environment.sessionService) {
                     sessionBeingExtended = nil
-                    viewModel.refresh()
+                    Task { await viewModel.refresh() }
                 }
             }
         }
@@ -96,11 +105,14 @@ struct HomeView: View {
         switch destination {
         case .parking:
             ParkingMapView(user: user, environment: environment) {
-                viewModel.refresh()
+                Task { await viewModel.refresh() }
             }
 
         case .vehicles:
             VehicleListView(vehicleService: environment.vehicleService, ownerID: user.id)
+
+        case .history:
+            ParkingHistoryView(sessionService: environment.sessionService, userID: user.id)
 
         case .settings:
             SettingsView(authService: environment.authService, user: user) { updated in

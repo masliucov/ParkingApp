@@ -9,6 +9,7 @@ final class AppEnvironment {
     let vehicleService: VehicleService
     let sessionService: ParkingSessionService
     let locationProvider = LocationProvider()
+    let notifications = ParkingNotifications()
 
     private(set) var currentUser: User?
     private(set) var errorMessage: String?

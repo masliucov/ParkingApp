@@ -27,6 +27,15 @@ struct ParkingSession: Codable, Equatable, Identifiable, Sendable {
             .formatted(.time(pattern: .hourMinuteSecond))
     }
 
+    /// Everything paid for, including any time added along the way.
+    var totalDuration: TimeInterval {
+        expiresAt.timeIntervalSince(startedAt)
+    }
+
+    var formattedTotalDuration: String {
+        Duration.seconds(Int(totalDuration)).formatted(.time(pattern: .hourMinute))
+    }
+
     var formattedAmountPaid: String {
         ParkingPricing.formatted(amountPaid)
     }

@@ -1,10 +1,30 @@
 # ParkingApp
 
-An iOS parking app: create an account, register your vehicle, pick a parking lot on the
-map, choose how long you want to stay, "pay", and watch a live countdown that you can
-extend at any time by paying for more time.
+An iOS parking app: create an account, register your vehicle, pick a spot on the street
+map near you, choose how long you want to stay, pay, and watch a live countdown that you
+can extend at any time by buying more time.
 
 The entire user interface is in **English**.
+
+## What it does
+
+- **Accounts** — sign up and sign in; the session survives closing the app.
+- **Vehicles** — register cars by model and license plate, edit and delete them.
+- **Find parking** — a real map centred on you, with parking spots on nearby streets.
+- **Pay and park** — pick a vehicle and a duration, see the price, start parking.
+- **Live countdown** — the home screen counts down to the second.
+- **Add time** — buy more time; it is added to the end of the stay, never to the moment
+  you tap the button.
+- **Reminders** — a local notification ten minutes before the end, and one when it ends.
+- **History** — every stay, with the street, the plate, how long and how much.
+
+### What is simulated
+
+- **Payments.** No card is ever charged; the app only records what a stay would cost.
+- **Prices and free spaces.** No source of real parking tariffs exists, so both are
+  invented — steadily, so a given spot always shows the same numbers.
+- **The spots themselves.** They are random points snapped onto real streets with
+  walking directions, not places where parking is known to be legal.
 
 ## Requirements
 
@@ -34,12 +54,17 @@ Everything runs locally — there is no backend, and payments are simulated.
 
 ```
 ParkingApp/
-├── App/            App entry point and root navigation
-├── Core/           Cross-cutting concerns (errors, persistence)
-├── DesignSystem/   Spacing, radius and reusable styles
+├── App/            Entry point, dependency wiring, root navigation
+├── Core/           Models, persistence, location, notifications, security
+├── DesignSystem/   Spacing, radius, form controls, button styles
+├── Features/       Auth · Vehicles · Parking · Home · History · Settings
 └── Resources/      Assets
 ParkingAppTests/    Unit tests (Swift Testing)
 ```
+
+Each feature holds its own views, view models, services and repositories. Services take
+their dependencies through the initialiser, so tests build them over
+`InMemoryKeyValueStore` and never touch the disk.
 
 ### Conventions
 
@@ -61,14 +86,22 @@ That is enough for a device-local app, but not for a real product: a shipping ap
 verify credentials on a backend and use a deliberately slow hash such as PBKDF2, scrypt
 or Argon2, because SHA-256 is fast enough to make offline brute force cheap.
 
-## Roadmap
+### Money
 
-| Part | Scope |
-| --- | --- |
-| 1 | Project scaffold, design system, persistence layer |
-| 2 | Accounts: sign up, sign in, persisted session |
-| 3 | Vehicles: car model and license plate |
-| 4 | Parking lots on the map |
-| 5 | Duration picker and simulated payment |
-| 6 | Live countdown and time extension |
-| 7 | History, notifications and polish |
+Amounts are `Decimal`, built from whole cents with `Decimal.cents(_:)`. Writing `0.83`
+directly goes through `Double` on the way to `Decimal` and lands on 0.8299999999999997952,
+which is close enough to look right and wrong enough to fail a comparison.
+
+## Testing
+
+121 tests across 14 suites, all written with Swift Testing.
+
+```bash
+xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
+```
+
+Two pieces have no tests, on purpose: `StreetParkingFinder` and `ParkingNotifications`
+both talk to system services over the network, so a test would be slow and would fail
+without a connection. The logic they depend on — where candidate spots go, and when a
+reminder is due — is pure and is covered.
