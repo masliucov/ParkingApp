@@ -11,6 +11,7 @@ final class ParkingMapViewModel {
     private(set) var searchErrorMessage: String?
 
     var selectedLot: ParkingLot?
+    var query = ""
 
     private let locationProvider: LocationProvider
     private let finder: StreetParkingFinder
@@ -38,6 +39,16 @@ final class ParkingMapViewModel {
 
     var hasNoNearbyParking: Bool {
         hasSearched && !isSearching && lots.isEmpty && searchErrorMessage == nil
+    }
+
+    /// What the map draws: everything found, or what matches the code or street typed.
+    var visibleLots: [ParkingLot] {
+        ParkingLotSearch.matching(query, in: lots)
+    }
+
+    /// A search that hides every spot needs saying, otherwise the map just looks empty.
+    var hasNoMatches: Bool {
+        !lots.isEmpty && visibleLots.isEmpty
     }
 
     /// Rounded to roughly 100 metres, so walking a few steps does not start a new search.

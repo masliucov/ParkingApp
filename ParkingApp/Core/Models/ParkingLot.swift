@@ -15,6 +15,14 @@ struct ParkingLot: Codable, Equatable, Identifiable, Sendable {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
+    /// Four digits a driver can read off the map and type back into the search field.
+    ///
+    /// Derived from `id` rather than stored, so a spot keeps its code between searches and
+    /// launches, and stays out of the sessions that hold a copy of this lot.
+    var code: String {
+        String(format: "%04d", StableHash.of(id) % 10_000)
+    }
+
     var hasSpacesAvailable: Bool {
         availableSpaces > 0
     }

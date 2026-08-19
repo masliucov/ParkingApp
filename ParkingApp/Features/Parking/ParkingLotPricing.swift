@@ -35,15 +35,7 @@ enum ParkingLotPricing {
         let longitude = Int64((coordinate.longitude * 100_000).rounded())
         let position = (latitude &* 73_856_093) ^ (longitude &* 19_349_663)
 
-        return UInt64(bitPattern: position) ^ nameSeed(name)
-    }
-
-    /// `String.hashValue` is salted per launch, so fold the characters by hand instead.
-    /// Otherwise a spot changes price every time the app opens.
-    private static func nameSeed(_ name: String) -> UInt64 {
-        name.unicodeScalars.reduce(UInt64(14_695_981_039_346_656_037)) { hash, scalar in
-            (hash ^ UInt64(scalar.value)) &* 1_099_511_628_211
-        }
+        return UInt64(bitPattern: position) ^ StableHash.of(name)
     }
 
     /// Five decimals is around a metre, enough to tell two lots apart.

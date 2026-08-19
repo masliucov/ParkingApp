@@ -13,6 +13,7 @@ The entire user interface is in **English**.
   brand is picked from a searchable list rather than typed, so it is spelled one way.
   A car that is parked cannot be deleted until its stay ends.
 - **Find parking** — a real map centred on you, with parking spots on nearby streets.
+  Every spot carries a four-digit code, and the map searches by code or street name.
 - **Pay and park** — pick a vehicle and a duration, see the price, start parking.
 - **Several vehicles at once** — a driver with two cars can have both parked. Each
   vehicle takes one stay at a time; the picker marks the ones already parked.
@@ -78,6 +79,9 @@ their dependencies through the initialiser, so tests build them over
 - Storage is abstracted behind `KeyValueStore` so features never touch the file system
   directly, and tests use `InMemoryKeyValueStore`.
 - Errors surface as `AppError` and `AuthError`, which carry user-facing English messages.
+- Anything a spot has to keep between launches — its price, its free spaces, its
+  four-digit code — is folded out of its street and position with `StableHash`, because
+  `String.hashValue` is salted per process and would change them on every launch.
 - Timestamps are created with `Date.storageNow()`. Stored files use ISO 8601, which keeps
   whole seconds only, so values in memory stay equal to the ones read back from disk.
 
@@ -100,7 +104,7 @@ which is close enough to look right and wrong enough to fail a comparison.
 
 ## Testing
 
-134 tests across 15 suites, all written with Swift Testing.
+143 tests across 17 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

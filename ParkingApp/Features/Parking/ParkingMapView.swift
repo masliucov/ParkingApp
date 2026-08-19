@@ -27,6 +27,16 @@ struct ParkingMapView: View {
             .overlay(alignment: .bottom) { selection }
             .navigationTitle("Find parking")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(
+                text: $viewModel.query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search by code or street"
+            )
+            .autocorrectionDisabled()
+            .onChange(of: viewModel.query) {
+                // The card would otherwise outlive the pin the search just hid.
+                viewModel.clearSelection()
+            }
             .task {
                 viewModel.requestLocation()
             }
@@ -51,14 +61,16 @@ struct ParkingMapView: View {
         Map(position: $cameraPosition) {
             UserAnnotation()
 
-            ForEach(viewModel.lots) { lot in
-                Annotation(lot.name, coordinate: lot.coordinate) {
+            ForEach(viewModel.visibleLots) { lot in
+                Annotation(lot.code, coordinate: lot.coordinate) {
                     Button {
                         viewModel.select(lot)
                     } label: {
                         ParkingLotPin(isSelected: viewModel.selectedLot?.id == lot.id)
                     }
-                    .accessibilityLabel("\(lot.name), \(lot.availableSpaces) spaces free")
+                    .accessibilityLabel(
+                        "\(lot.name), code \(lot.code), \(lot.availableSpaces) spaces free"
+                    )
                 }
             }
         }
@@ -90,6 +102,10 @@ struct ParkingMapView: View {
             banner(message: searchErrorMessage, actionTitle: "Try again", action: retry)
         } else if viewModel.hasNoNearbyParking {
             banner(message: "No street parking found around here.", actionTitle: "Try again", action: retry)
+        } else if viewModel.hasNoMatches {
+            banner(message: "No parking here matches “\(viewModel.query)”.", actionTitle: "Clear") {
+                viewModel.query = ""
+            }
         }
     }
 
@@ -166,8 +182,14 @@ private struct ParkingLotCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             HStack {
-                Text(lot.name)
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: Theme.Spacing.extraSmall) {
+                    Text(lot.name)
+                        .font(.headline)
+
+                    Text("Code \(lot.code)")
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
