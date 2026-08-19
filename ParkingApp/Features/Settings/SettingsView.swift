@@ -3,7 +3,15 @@ import SwiftUI
 struct SettingsView: View {
     @State private var viewModel: SettingsViewModel
 
-    init(authService: AuthService, user: User, onUpdated: @escaping (User) -> Void) {
+    private let onSignOut: () -> Void
+
+    init(
+        authService: AuthService,
+        user: User,
+        onSignOut: @escaping () -> Void,
+        onUpdated: @escaping (User) -> Void
+    ) {
+        self.onSignOut = onSignOut
         _viewModel = State(
             initialValue: SettingsViewModel(
                 authService: authService,
@@ -42,6 +50,9 @@ struct SettingsView: View {
                 .buttonStyle(.primary)
                 .disabled(!viewModel.canSubmit)
                 .padding(.top, Theme.Spacing.small)
+
+                Button("Sign out", role: .destructive, action: onSignOut)
+                    .padding(.top, Theme.Spacing.medium)
             }
             .padding(Theme.Spacing.large)
             .frame(maxWidth: Theme.Layout.maxContentWidth)
@@ -78,6 +89,7 @@ struct SettingsView: View {
                 sessionStore: SessionStore(store: InMemoryKeyValueStore())
             ),
             user: User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date()),
+            onSignOut: {},
             onUpdated: { _ in }
         )
     }

@@ -5,17 +5,16 @@ struct ParkingMapView: View {
     @State private var viewModel: ParkingMapViewModel
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var lotBeingBooked: ParkingLot?
-
-    @Environment(\.dismiss) private var dismiss
+    @State private var sessionBeingExtended: ParkingSession?
 
     private let user: User
     private let environment: AppEnvironment
-    private let onSessionStarted: () -> Void
+    private let activeParking: ActiveParkingViewModel
 
-    init(user: User, environment: AppEnvironment, onSessionStarted: @escaping () -> Void) {
+    init(user: User, environment: AppEnvironment, activeParking: ActiveParkingViewModel) {
         self.user = user
         self.environment = environment
-        self.onSessionStarted = onSessionStarted
+        self.activeParking = activeParking
         _viewModel = State(
             initialValue: ParkingMapViewModel(locationProvider: environment.locationProvider)
         )
@@ -24,7 +23,7 @@ struct ParkingMapView: View {
     var body: some View {
         map
             .overlay(alignment: .top) { status }
-            .overlay(alignment: .bottom) { selection }
+            .overlay(alignment: .bottom) { bottomCard }
             .navigationTitle("Find parking")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
@@ -51,8 +50,14 @@ struct ParkingMapView: View {
                     sessionService: environment.sessionService
                 ) {
                     lotBeingBooked = nil
-                    onSessionStarted()
-                    dismiss()
+                    viewModel.clearSelection()
+                    Task { await activeParking.refresh() }
+                }
+            }
+            .sheet(item: $sessionBeingExtended) { session in
+                AddTimeView(session: session, sessionService: environment.sessionService) {
+                    sessionBeingExtended = nil
+                    Task { await activeParking.refresh() }
                 }
             }
     }
@@ -109,8 +114,10 @@ struct ParkingMapView: View {
         }
     }
 
+    /// A tapped spot wins the bottom of the screen: it is what the driver just asked for,
+    /// and the countdown comes back the moment the card is closed.
     @ViewBuilder
-    private var selection: some View {
+    private var bottomCard: some View {
         if let lot = viewModel.selectedLot {
             ParkingLotCard(
                 lot: lot,
@@ -119,6 +126,12 @@ struct ParkingMapView: View {
                 onClose: viewModel.clearSelection
             )
             .padding(Theme.Spacing.medium)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        } else if !activeParking.activeSessions.isEmpty {
+            ActiveParkingOverlay(sessions: activeParking.activeSessions) { session in
+                sessionBeingExtended = session
+            }
+            .padding(.vertical, Theme.Spacing.medium)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
@@ -227,11 +240,18 @@ private struct ParkingLotCard: View {
 }
 
 #Preview {
-    NavigationStack {
+    let user = User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date())
+    let environment = AppEnvironment(store: InMemoryKeyValueStore())
+
+    return NavigationStack {
         ParkingMapView(
-            user: User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date()),
-            environment: AppEnvironment(store: InMemoryKeyValueStore()),
-            onSessionStarted: {}
+            user: user,
+            environment: environment,
+            activeParking: ActiveParkingViewModel(
+                sessionService: environment.sessionService,
+                notifications: environment.notifications,
+                userID: user.id
+            )
         )
     }
 }

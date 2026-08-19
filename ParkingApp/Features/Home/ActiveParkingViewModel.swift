@@ -1,9 +1,13 @@
 import Foundation
 import Observation
 
+/// What the driver has parked right now, kept in step with the reminders.
+///
+/// Lives above the tabs rather than inside the map, so the countdown and the notifications
+/// stay right while the driver is off looking at their vehicles or their history.
 @MainActor
 @Observable
-final class HomeViewModel {
+final class ActiveParkingViewModel {
     private(set) var activeSessions: [ParkingSession] = []
     private(set) var errorMessage: String?
 

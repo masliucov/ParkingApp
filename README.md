@@ -17,8 +17,8 @@ The entire user interface is in **English**.
 - **Pay and park** — pick a vehicle and a duration, see the price, start parking.
 - **Several vehicles at once** — a driver with two cars can have both parked. Each
   vehicle takes one stay at a time; the picker marks the ones already parked.
-- **Live countdown** — the home screen counts down to the second, one card per stay,
-  soonest to run out first.
+- **Live countdown** — a card over the map counts down to the second, one per stay,
+  soonest to run out first; with more than one car the cards page sideways.
 - **Add time** — buy more time; it is added to the end of the stay, never to the moment
   you tap the button.
 - **Reminders** — a local notification ten minutes before the end, and one when it ends,
@@ -55,6 +55,9 @@ xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \
 ```
 
 ## Architecture
+
+The map is the first screen after signing in, with Vehicles, History and Settings a tab
+away. Signing out lives at the bottom of Settings.
 
 SwiftUI + MVVM with a repository layer on top of a pluggable key-value store.
 Everything runs locally — there is no backend, and payments are simulated.
