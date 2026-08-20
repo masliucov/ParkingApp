@@ -1,8 +1,8 @@
 # ParkingApp
 
-An iOS parking app: create an account, register your vehicle, pick a spot on the street
-map near you, choose how long you want to stay, pay, and watch a live countdown that you
-can extend at any time by buying more time.
+An iOS parking app: create an account, register your vehicle, top up your balance, pick a
+spot on the street map near you, choose how long you want to stay, pay, and watch a live
+countdown that you can extend at any time by buying more time.
 
 The entire user interface is in **English**.
 
@@ -18,7 +18,13 @@ The entire user interface is in **English**.
   including spots parked at before, so a code off an old receipt still finds them. A spot
   holding one of your cars is green and badged with how many, and stays on the map even
   when a search would drop it.
-- **Pay and park** — pick a vehicle and a duration, see the price, start parking.
+- **Balance** — the money you have sits in the top right of the map, with a `+` that adds
+  €5, €10, €20 or €50. Parking is paid out of it, so it goes down as you park.
+- **Pay and park** — pick a vehicle and a duration, see the price, start parking. The
+  screen shows your balance next to the total, and if it will not cover the stay it says
+  how much is missing and offers to add funds without leaving the screen. The same holds
+  when buying more time, and the service refuses either one outright if the balance is
+  short, so nothing is ever parked for free.
 - **Several vehicles at once** — a driver with two cars can have both parked. Each
   vehicle takes one stay at a time; the picker marks the ones already parked.
 - **Live countdown** — a card over the map counts down to the second, one per stay,
@@ -34,7 +40,9 @@ The entire user interface is in **English**.
 
 ### What is simulated
 
-- **Payments.** No card is ever charged; the app only records what a stay would cost.
+- **Payments.** No card is ever charged, and adding funds credits the balance out of thin
+  air. What is real is the spending: a stay only starts once its price has left the
+  balance, and a driver who cannot cover it is turned away.
 - **Prices and free spaces.** No source of real parking tariffs exists, so both are
   invented — steadily, so a given spot always shows the same numbers.
 - **The spots themselves.** They are random points snapped onto real streets with
@@ -112,9 +120,14 @@ Amounts are `Decimal`, built from whole cents with `Decimal.cents(_:)`. Writing 
 directly goes through `Double` on the way to `Decimal` and lands on 0.8299999999999997952,
 which is close enough to look right and wrong enough to fail a comparison.
 
+A balance is one `Wallet` per account, and like every other model it is never edited in
+place: adding money or paying for a stay returns a new one. `ParkingSessionService` takes
+the price out of the balance before it writes the stay, and puts it back if that write
+fails, so there is no way to be parked without having paid.
+
 ## Testing
 
-162 tests across 19 suites, all written with Swift Testing.
+188 tests across 21 suites, all written with Swift Testing.
 
 ```bash
 xcodebuild -project ParkingApp.xcodeproj -scheme ParkingApp \

@@ -12,6 +12,8 @@ final class StartParkingViewModel {
 
     var selectedVehicleID: UUID?
     var duration: ParkingDuration = .oneHour
+    /// Kept in step with the balance shown above the map, which is where it is topped up.
+    var balance: Decimal = 0
 
     private let user: User
     private let vehicleService: VehicleService
@@ -48,8 +50,24 @@ final class StartParkingViewModel {
         "Pay \(formattedPrice)"
     }
 
+    var formattedBalance: String {
+        ParkingPricing.formatted(balance)
+    }
+
+    var hasEnoughBalance: Bool {
+        balance >= price
+    }
+
+    /// Said before the driver taps Pay rather than after: an empty balance is the one thing
+    /// stopping them that they can fix without leaving the screen.
+    var balanceWarning: String? {
+        guard !hasEnoughBalance else { return nil }
+        let missing = ParkingPricing.formatted(price - balance)
+        return "Not enough balance. Add \(missing) or more to park here."
+    }
+
     var canPay: Bool {
-        guard let selectedVehicleID, lot.hasSpacesAvailable else { return false }
+        guard let selectedVehicleID, lot.hasSpacesAvailable, hasEnoughBalance else { return false }
         return !parkedVehicleIDs.contains(selectedVehicleID)
     }
 

@@ -2,9 +2,13 @@ import Foundation
 
 /// Starting and reading parking sessions.
 ///
-/// Nothing is charged. `amountPaid` only records what the stay would have cost.
+/// No card is charged, but a stay is paid for: its price comes out of the balance the
+/// driver keeps in the app, and `amountPaid` records what it cost.
 struct ParkingSessionService: Sendable {
     let repository: ParkingSessionRepository
+    /// Where a stay is paid from. Every path that costs money goes through `pay`, so there
+    /// is one place where parking and the balance could fall out of step.
+    let wallet: WalletService
 
     /// One session at a time per vehicle. A driver with two cars can park both.
     func start(
@@ -19,6 +23,7 @@ struct ParkingSessionService: Sendable {
             throw ParkingSessionError.vehicleAlreadyParked
         }
 
+        let price = ParkingPricing.price(hourlyRate: lot.hourlyRate, minutes: duration.minutes)
         let session = ParkingSession(
             id: UUID(),
             userID: userID,
@@ -26,10 +31,10 @@ struct ParkingSessionService: Sendable {
             lot: lot,
             startedAt: now,
             expiresAt: now.addingTimeInterval(duration.timeInterval),
-            amountPaid: ParkingPricing.price(hourlyRate: lot.hourlyRate, minutes: duration.minutes)
+            amountPaid: price
         )
 
-        try repository.save(session)
+        try pay(price, for: session)
         return session
     }
 
@@ -42,6 +47,10 @@ struct ParkingSessionService: Sendable {
     ) throws -> ParkingSession {
         guard session.isActive(at: now) else { throw ParkingSessionError.sessionEnded }
 
+        let price = ParkingPricing.price(
+            hourlyRate: session.lot.hourlyRate,
+            minutes: duration.minutes
+        )
         let extended = ParkingSession(
             id: session.id,
             userID: session.userID,
@@ -49,13 +58,10 @@ struct ParkingSessionService: Sendable {
             lot: session.lot,
             startedAt: session.startedAt,
             expiresAt: session.expiresAt.addingTimeInterval(duration.timeInterval),
-            amountPaid: session.amountPaid + ParkingPricing.price(
-                hourlyRate: session.lot.hourlyRate,
-                minutes: duration.minutes
-            )
+            amountPaid: session.amountPaid + price
         )
 
-        try repository.save(extended)
+        try pay(price, for: extended)
         return extended
     }
 
@@ -102,5 +108,22 @@ struct ParkingSessionService: Sendable {
 
     func sessions(for userID: UUID) throws -> [ParkingSession] {
         try repository.sessions(for: userID)
+    }
+
+    /// Takes the price out of the balance and only then writes the stay, so a driver whose
+    /// balance is short is turned away before anything is parked.
+    ///
+    /// If the write fails the charge goes back: both go to the same store, so a refund that
+    /// fails too means the storage itself is gone, and either way what the driver is told
+    /// about is the failure that started it.
+    private func pay(_ price: Decimal, for session: ParkingSession) throws {
+        try wallet.charge(price, userID: session.userID)
+
+        do {
+            try repository.save(session)
+        } catch {
+            _ = try? wallet.add(price, userID: session.userID)
+            throw error
+        }
     }
 }

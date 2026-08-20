@@ -2,15 +2,21 @@ import SwiftUI
 
 struct StartParkingView: View {
     @State private var viewModel: StartParkingViewModel
+    @State private var isAddingFunds = false
     @Environment(\.dismiss) private var dismiss
+
+    /// The same balance the map shows, so topping up here changes it there too.
+    private let wallet: WalletViewModel
 
     init(
         lot: ParkingLot,
         user: User,
         vehicleService: VehicleService,
         sessionService: ParkingSessionService,
+        wallet: WalletViewModel,
         onStarted: @escaping () -> Void
     ) {
+        self.wallet = wallet
         _viewModel = State(
             initialValue: StartParkingViewModel(
                 lot: lot,
@@ -72,6 +78,15 @@ struct StartParkingView: View {
                 Section {
                     LabeledContent("Total", value: viewModel.formattedPrice)
                         .font(.headline)
+
+                    LabeledContent("Balance", value: viewModel.formattedBalance)
+                        .foregroundStyle(viewModel.hasEnoughBalance ? Color.primary : Color.orange)
+
+                    if let balanceWarning = viewModel.balanceWarning {
+                        InsufficientBalanceNotice(message: balanceWarning) {
+                            isAddingFunds = true
+                        }
+                    }
                 } footer: {
                     Text("No card is charged. Paying is simulated in this app.")
                 }
@@ -103,6 +118,12 @@ struct StartParkingView: View {
             .task {
                 viewModel.load()
             }
+            .onChange(of: wallet.balance, initial: true) { _, balance in
+                viewModel.balance = balance
+            }
+            .sheet(isPresented: $isAddingFunds) {
+                AddFundsView(wallet: wallet)
+            }
         }
     }
 }
@@ -121,7 +142,12 @@ struct StartParkingView: View {
         user: User(id: UUID(), name: "Ana Silva", email: "ana@example.com", createdAt: Date()),
         vehicleService: AppEnvironment(store: InMemoryKeyValueStore()).vehicleService,
         sessionService: ParkingSessionService(
-            repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore())
+            repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore()),
+            wallet: WalletService(repository: StoredWalletRepository(store: InMemoryKeyValueStore()))
+        ),
+        wallet: WalletViewModel(
+            service: WalletService(repository: StoredWalletRepository(store: InMemoryKeyValueStore())),
+            userID: UUID()
         ),
         onStarted: {}
     )

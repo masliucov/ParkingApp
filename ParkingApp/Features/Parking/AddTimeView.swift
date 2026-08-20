@@ -2,13 +2,19 @@ import SwiftUI
 
 struct AddTimeView: View {
     @State private var viewModel: AddTimeViewModel
+    @State private var isAddingFunds = false
     @Environment(\.dismiss) private var dismiss
+
+    /// The same balance the map shows, so topping up here changes it there too.
+    private let wallet: WalletViewModel
 
     init(
         session: ParkingSession,
         sessionService: ParkingSessionService,
+        wallet: WalletViewModel,
         onExtended: @escaping () -> Void
     ) {
+        self.wallet = wallet
         _viewModel = State(
             initialValue: AddTimeViewModel(
                 session: session,
@@ -41,6 +47,15 @@ struct AddTimeView: View {
                     LabeledContent("New end time", value: viewModel.formattedNewEndTime)
                     LabeledContent("Total", value: viewModel.formattedPrice)
                         .font(.headline)
+
+                    LabeledContent("Balance", value: viewModel.formattedBalance)
+                        .foregroundStyle(viewModel.hasEnoughBalance ? Color.primary : Color.orange)
+
+                    if let balanceWarning = viewModel.balanceWarning {
+                        InsufficientBalanceNotice(message: balanceWarning) {
+                            isAddingFunds = true
+                        }
+                    }
                 } footer: {
                     Text("No card is charged. Paying is simulated in this app.")
                 }
@@ -65,8 +80,15 @@ struct AddTimeView: View {
                     viewModel.pay()
                 }
                 .buttonStyle(.primary)
+                .disabled(!viewModel.canPay)
                 .padding(Theme.Spacing.large)
                 .background(.bar)
+            }
+            .onChange(of: wallet.balance, initial: true) { _, balance in
+                viewModel.balance = balance
+            }
+            .sheet(isPresented: $isAddingFunds) {
+                AddFundsView(wallet: wallet)
             }
         }
     }
@@ -98,7 +120,12 @@ struct AddTimeView: View {
             amountPaid: .cents(120)
         ),
         sessionService: ParkingSessionService(
-            repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore())
+            repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore()),
+            wallet: WalletService(repository: StoredWalletRepository(store: InMemoryKeyValueStore()))
+        ),
+        wallet: WalletViewModel(
+            service: WalletService(repository: StoredWalletRepository(store: InMemoryKeyValueStore())),
+            userID: UUID()
         ),
         onExtended: {}
     )

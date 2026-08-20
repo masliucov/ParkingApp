@@ -3,10 +3,14 @@ import SwiftUI
 
 struct ParkingMapView: View {
     @State private var viewModel: ParkingMapViewModel
+    /// Lives here because the balance is shown here, and every screen that spends it is
+    /// opened from this one.
+    @State private var wallet: WalletViewModel
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var lotBeingBooked: ParkingLot?
     @State private var sessionBeingExtended: ParkingSession?
     @State private var sessionBeingEnded: ParkingSession?
+    @State private var isAddingFunds = false
 
     @Binding private var lotToShow: ParkingLot?
 
@@ -31,6 +35,9 @@ struct ParkingMapView: View {
                 userID: user.id
             )
         )
+        _wallet = State(
+            initialValue: WalletViewModel(service: environment.walletService, userID: user.id)
+        )
     }
 
     var body: some View {
@@ -39,6 +46,13 @@ struct ParkingMapView: View {
             .overlay(alignment: .bottom) { bottomCard }
             .navigationTitle("Find parking")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    WalletBalanceButton(formattedBalance: wallet.formattedBalance) {
+                        isAddingFunds = true
+                    }
+                }
+            }
             .searchable(
                 text: $viewModel.query,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -56,6 +70,7 @@ struct ParkingMapView: View {
             .task {
                 viewModel.requestLocation()
                 viewModel.loadKnownLots()
+                wallet.load()
             }
             .onChange(of: activeParking.activeSessions) {
                 // A stay that just started or ended may have added a spot worth searching.
@@ -64,21 +79,31 @@ struct ParkingMapView: View {
             .task(id: viewModel.searchKey) {
                 await viewModel.loadLots()
             }
+            .sheet(isPresented: $isAddingFunds) {
+                AddFundsView(wallet: wallet)
+            }
             .sheet(item: $lotBeingBooked) { lot in
                 StartParkingView(
                     lot: lot,
                     user: user,
                     vehicleService: environment.vehicleService,
-                    sessionService: environment.sessionService
+                    sessionService: environment.sessionService,
+                    wallet: wallet
                 ) {
                     lotBeingBooked = nil
                     viewModel.clearSelection()
+                    wallet.load()
                     Task { await activeParking.refresh() }
                 }
             }
             .sheet(item: $sessionBeingExtended) { session in
-                AddTimeView(session: session, sessionService: environment.sessionService) {
+                AddTimeView(
+                    session: session,
+                    sessionService: environment.sessionService,
+                    wallet: wallet
+                ) {
                     sessionBeingExtended = nil
+                    wallet.load()
                     Task { await activeParking.refresh() }
                 }
             }
@@ -151,6 +176,12 @@ struct ParkingMapView: View {
                 message: parkingErrorMessage,
                 actionTitle: "OK",
                 action: activeParking.dismissError
+            )
+        } else if let walletErrorMessage = wallet.errorMessage {
+            banner(
+                message: walletErrorMessage,
+                actionTitle: "OK",
+                action: wallet.dismissError
             )
         } else if viewModel.hasNoMatches {
             banner(message: "No parking here matches “\(viewModel.query)”.", actionTitle: "Clear") {

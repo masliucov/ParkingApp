@@ -8,6 +8,7 @@ final class AppEnvironment {
     let authService: AuthService
     let vehicleService: VehicleService
     let sessionService: ParkingSessionService
+    let walletService: WalletService
     let locationProvider = LocationProvider()
     let notifications = ParkingNotifications()
 
@@ -19,8 +20,11 @@ final class AppEnvironment {
             repository: StoredUserRepository(store: store),
             sessionStore: SessionStore(store: store)
         )
+        let wallet = WalletService(repository: StoredWalletRepository(store: store))
+        walletService = wallet
         let sessions = ParkingSessionService(
-            repository: StoredParkingSessionRepository(store: store)
+            repository: StoredParkingSessionRepository(store: store),
+            wallet: wallet
         )
         sessionService = sessions
         vehicleService = VehicleService(

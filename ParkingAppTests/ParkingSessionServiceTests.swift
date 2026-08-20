@@ -538,10 +538,160 @@ struct ParkingSessionServiceTests {
         #expect(try service.parkedVehicleIDs(for: user, at: now.addingTimeInterval(3601)).isEmpty)
     }
 
+    // MARK: - Paying from the balance
+
+    @Test("pays for the stay out of the balance")
+    func paysForTheStayFromTheBalance() throws {
+        // Arrange
+        let service = makeService(openingBalance: .cents(1_000))
+        let user = UUID()
+
+        // Act
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(120)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+
+        // Assert
+        #expect(session.amountPaid == .cents(240))
+        #expect(try service.wallet.balance(for: user) == .cents(760))
+    }
+
+    @Test("refuses to start a stay the balance cannot cover and says how much is missing")
+    func refusesToStartWithoutEnoughBalance() {
+        // Arrange
+        let service = makeService(openingBalance: .cents(100))
+        let user = UUID()
+
+        // Act & Assert
+        #expect(throws: WalletError.insufficientFunds(shortfall: .cents(20))) {
+            try service.start(
+                lot: makeLot(hourlyRate: .cents(120)),
+                vehicle: makeVehicle(ownerID: user),
+                duration: .oneHour,
+                userID: user,
+                now: now
+            )
+        }
+    }
+
+    @Test("parks nothing when the balance is short")
+    func parksNothingWhenBalanceIsShort() throws {
+        // Arrange
+        let service = makeService(openingBalance: .cents(100))
+        let user = UUID()
+
+        // Act
+        #expect(throws: WalletError.self) {
+            try service.start(
+                lot: makeLot(hourlyRate: .cents(120)),
+                vehicle: makeVehicle(ownerID: user),
+                duration: .oneHour,
+                userID: user,
+                now: now
+            )
+        }
+
+        // Assert
+        #expect(try service.sessions(for: user).isEmpty)
+        #expect(try service.wallet.balance(for: user) == .cents(100))
+    }
+
+    @Test("pays for added time out of the balance")
+    func paysForAddedTimeFromTheBalance() throws {
+        // Arrange
+        let service = makeService(openingBalance: .cents(1_000))
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(120)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        _ = try service.extend(session, by: .thirtyMinutes, now: now)
+
+        // Assert: the hour, then half of one more
+        #expect(try service.wallet.balance(for: user) == .cents(820))
+    }
+
+    @Test("refuses to add time the balance cannot cover")
+    func refusesToAddTimeWithoutEnoughBalance() throws {
+        // Arrange: an hour bought at 1.50 leaves 0.50 of the 2.00 opening balance
+        let service = makeService(openingBalance: .cents(200))
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(150)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act & Assert
+        #expect(throws: WalletError.insufficientFunds(shortfall: .cents(25))) {
+            try service.extend(session, by: .thirtyMinutes, now: now)
+        }
+    }
+
+    @Test("leaves the stay as it was when there is not enough to add time")
+    func keepsStayUnchangedWhenBalanceIsShort() throws {
+        // Arrange
+        let service = makeService(openingBalance: .cents(200))
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(150)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .oneHour,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        #expect(throws: WalletError.self) {
+            try service.extend(session, by: .thirtyMinutes, now: now)
+        }
+
+        // Assert
+        #expect(try service.sessions(for: user) == [session])
+        #expect(try service.wallet.balance(for: user) == .cents(50))
+    }
+
+    @Test("gives nothing back to the balance when a stay ends early")
+    func refundsNothingWhenEndingEarly() throws {
+        // Arrange
+        let service = makeService(openingBalance: .cents(1_000))
+        let user = UUID()
+        let session = try service.start(
+            lot: makeLot(hourlyRate: .cents(120)),
+            vehicle: makeVehicle(ownerID: user),
+            duration: .twoHours,
+            userID: user,
+            now: now
+        )
+
+        // Act
+        _ = try service.end(session, now: now.addingTimeInterval(600))
+
+        // Assert
+        #expect(try service.wallet.balance(for: user) == .cents(760))
+    }
+
     // MARK: - Helpers
 
-    private func makeService(store: KeyValueStore = InMemoryKeyValueStore()) -> ParkingSessionService {
-        ParkingSessionService(repository: StoredParkingSessionRepository(store: store))
+    private func makeService(
+        store: KeyValueStore = InMemoryKeyValueStore(),
+        openingBalance: Decimal = .cents(10_000)
+    ) -> ParkingSessionService {
+        ParkingSessionService(
+            repository: StoredParkingSessionRepository(store: store),
+            wallet: .funded(store: store, openingBalance: openingBalance)
+        )
     }
 
     private func makeLot(hourlyRate: Decimal = .cents(120), availableSpaces: Int = 8) -> ParkingLot {

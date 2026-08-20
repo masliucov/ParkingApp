@@ -256,7 +256,8 @@ struct VehicleServiceTests {
         VehicleService(
             repository: StoredVehicleRepository(store: store),
             sessionService: ParkingSessionService(
-                repository: StoredParkingSessionRepository(store: store)
+                repository: StoredParkingSessionRepository(store: store),
+                wallet: .funded(store: store)
             )
         )
     }
@@ -265,7 +266,8 @@ struct VehicleServiceTests {
     /// reads, so deleting it has something to trip over.
     private func park(_ vehicle: Vehicle, ownerID: UUID, in store: KeyValueStore) throws {
         let sessions = ParkingSessionService(
-            repository: StoredParkingSessionRepository(store: store)
+            repository: StoredParkingSessionRepository(store: store),
+            wallet: .funded(store: store)
         )
         _ = try sessions.start(
             lot: ParkingLot(

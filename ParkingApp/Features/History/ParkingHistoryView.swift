@@ -109,7 +109,8 @@ private struct ParkingHistoryRow: View {
     NavigationStack {
         ParkingHistoryView(
             sessionService: ParkingSessionService(
-                repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore())
+                repository: StoredParkingSessionRepository(store: InMemoryKeyValueStore()),
+                wallet: WalletService(repository: StoredWalletRepository(store: InMemoryKeyValueStore()))
             ),
             userID: UUID(),
             onShowOnMap: { _ in }

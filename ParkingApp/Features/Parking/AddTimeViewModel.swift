@@ -7,6 +7,8 @@ final class AddTimeViewModel {
     let session: ParkingSession
 
     var duration: ParkingDuration = .oneHour
+    /// Kept in step with the balance shown above the map, which is where it is topped up.
+    var balance: Decimal = 0
 
     private(set) var errorMessage: String?
 
@@ -33,6 +35,26 @@ final class AddTimeViewModel {
 
     var payButtonTitle: String {
         "Pay \(formattedPrice)"
+    }
+
+    var formattedBalance: String {
+        ParkingPricing.formatted(balance)
+    }
+
+    var hasEnoughBalance: Bool {
+        balance >= price
+    }
+
+    /// Said before the driver taps Pay rather than after: an empty balance is the one thing
+    /// stopping them that they can fix without leaving the screen.
+    var balanceWarning: String? {
+        guard !hasEnoughBalance else { return nil }
+        let missing = ParkingPricing.formatted(price - balance)
+        return "Not enough balance. Add \(missing) or more to buy this time."
+    }
+
+    var canPay: Bool {
+        hasEnoughBalance
     }
 
     /// Extra time goes onto the end of the stay, not onto the current moment, so time
